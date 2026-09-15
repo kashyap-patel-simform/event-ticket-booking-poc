@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "oxlint",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
@@ -24,11 +26,14 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.5.1",
+    "@types/supertest": "^7.2.1",
     "dotenv": "^17.4.2",
     "oxlint": "^1.83.0",
     "prettier": "^3.9.6",
     "prisma": "^6.12.0",
+    "supertest": "^7.2.2",
     "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
   }
 }
