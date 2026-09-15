@@ -1,0 +1,9 @@
+// Production build only: src → dist, excluding test files. tsconfig.json is the project's
+// default (src + test) so editors and `npm run typecheck` see everything.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src"
+  },
+  "include": ["src"]
+}
