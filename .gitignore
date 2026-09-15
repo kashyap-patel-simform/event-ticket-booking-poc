@@ -5,6 +5,7 @@ build/
 coverage/
 src/generated/
 docs/
+.claude/
 
 .env
 .env.local
