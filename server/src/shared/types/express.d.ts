@@ -5,6 +5,7 @@ declare global {
     interface Request {
       id: string;
       log: Logger;
+      user?: { id: string };
     }
   }
 }
