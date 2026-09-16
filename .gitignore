@@ -3,7 +3,7 @@ dist/
 dist-ssr/
 build/
 coverage/
-src/generated/
+server/src/generated/
 docs/
 .claude/
 
