@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { eventsRouter } from "./modules/events/events.routes.js";
 import { env } from "./shared/lib/env.js";
 import { errorHandler } from "./shared/middleware/errorHandler.js";
 import { requestLogger } from "./shared/middleware/requestLogger.js";
@@ -27,5 +28,6 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRouter);
+app.use("/api/events", eventsRouter);
 
 app.use(errorHandler);
