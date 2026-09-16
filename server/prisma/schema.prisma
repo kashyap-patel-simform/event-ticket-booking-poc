@@ -21,4 +21,37 @@ model User {
   name         String
   passwordHash String
   createdAt    DateTime @default(now())
+  events       Event[]
+}
+
+enum SeatStatus {
+  available
+  held
+  booked
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  organiserId String
+  organiser   User     @relation(fields: [organiserId], references: [id])
+  name        String
+  date        DateTime
+  venue       String
+  priceCents  Int
+  createdAt   DateTime @default(now())
+  seats       Seat[]
+
+  @@index([organiserId])
+}
+
+model Seat {
+  id        String     @id @default(cuid())
+  eventId   String
+  event     Event      @relation(fields: [eventId], references: [id])
+  label     String
+  status    SeatStatus @default(available)
+  createdAt DateTime   @default(now())
+
+  @@unique([eventId, label])
+  @@index([eventId])
 }
