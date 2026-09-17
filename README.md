@@ -73,6 +73,18 @@ npm install
 npm run dev             # http://localhost:5173, proxies /api/* to the server
 ```
 
+### Docker (both at once)
+
+```bash
+cp server/.env.example server/.env   # fill in DATABASE_URL, etc. — a Neon (or other Postgres) connection string
+docker compose up
+```
+
+Brings up `server` (http://localhost:4000, proxied at container-internal port 3000) and `client`
+(http://localhost:5173) together, with hot reload. Postgres itself isn't a compose service — both
+containers connect out to whatever `DATABASE_URL`/`DIRECT_URL` point at in `server/.env` (Neon in
+this project).
+
 ## Scripts (per project)
 
 | Script | Purpose |
