@@ -1,0 +1,28 @@
+# Bind mounts don't reliably forward host file-change events into the container (notably on
+# Docker Desktop for Mac), so both dev watchers (tsx watch, Vite) fall back to polling here via
+# CHOKIDAR_USEPOLLING / DOCKER — see the matching comment in client/vite.config.ts.
+services:
+  server:
+    build: ./server
+    env_file: ./server/.env
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "4000:3000" # host 4000 -> container 3000; 3000 is often already taken by other local services
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+      - /app/src/generated # keep the container's own (linux) generated Prisma client, not the host's
+
+  client:
+    build: ./client
+    environment:
+      API_PROXY_TARGET: http://server:3000 # container-to-container; the host's localhost:3000 doesn't resolve here
+      DOCKER: "true"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    depends_on:
+      - server
