@@ -5,4 +5,10 @@ export const API_ROUTES = {
     LOGIN: "/api/auth/login",
     REGISTER: "/api/auth/register",
   },
+  EVENTS: {
+    LIST: "/api/events",
+    CREATE: "/api/events",
+    DETAIL: (id: string) => `/api/events/${id}`,
+    SEATS: (id: string) => `/api/events/${id}/seats`,
+  },
 } as const;
