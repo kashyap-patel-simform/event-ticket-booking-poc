@@ -39,4 +39,12 @@ describe("AppError", () => {
     expect(err.message).toBe("seat not found");
     expect(err.statusCode).toBe(404);
   });
+
+  it("ConflictError carries optional details, undefined by default", () => {
+    expect(new ConflictError().details).toBeUndefined();
+
+    const details = { unavailableSeatIds: ["seat-1"] };
+    const err = new ConflictError("seats unavailable", details);
+    expect(err.details).toBe(details);
+  });
 });

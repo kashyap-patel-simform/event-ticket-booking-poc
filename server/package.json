@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:db": "vitest run --project db",
     "lint": "oxlint",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
@@ -26,6 +27,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@testcontainers/postgresql": "^12.1.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
@@ -36,6 +38,7 @@
     "prettier": "^3.9.6",
     "prisma": "^6.12.0",
     "supertest": "^7.2.2",
+    "testcontainers": "^12.1.0",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "vitest": "^5.0.0"

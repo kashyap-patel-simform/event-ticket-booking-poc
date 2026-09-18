@@ -3,7 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../../../src/shared/lib/prisma.js", () => ({
   prisma: {
     event: { create: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn() },
-    seat: { createMany: vi.fn(), findMany: vi.fn(), count: vi.fn(), groupBy: vi.fn() },
+    seat: {
+      createMany: vi.fn(),
+      findMany: vi.fn(),
+      count: vi.fn(),
+      groupBy: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    hold: { updateManyAndReturn: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -15,6 +22,8 @@ import { prisma } from "../../../../src/shared/lib/prisma.js";
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(prisma.$transaction).mockImplementation((fn) => fn(prisma as never));
+  // No expired holds by default — individual tests override this to exercise the release path.
+  vi.mocked(prisma.hold.updateManyAndReturn).mockResolvedValue([]);
 });
 
 describe("events.service createEvent", () => {
@@ -85,6 +94,31 @@ describe("events.service getEventById", () => {
     await expect(eventsService.getEventById("missing")).rejects.toThrow(NotFoundError);
     expect(prisma.seat.groupBy).not.toHaveBeenCalled();
   });
+
+  it("releases expired holds before reading seat counts", async () => {
+    const now = new Date();
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      id: "evt-1",
+      organiserId: "user-1",
+      name: "Test Concert",
+      date: now,
+      venue: "Main Hall",
+      priceCents: 2500,
+      createdAt: now,
+    });
+    vi.mocked(prisma.hold.updateManyAndReturn).mockResolvedValue([{ id: "hold-1" }] as never);
+    vi.mocked(prisma.seat.groupBy).mockResolvedValue([]);
+
+    await eventsService.getEventById("evt-1");
+
+    expect(prisma.seat.updateMany).toHaveBeenCalledWith({
+      where: { holdId: { in: ["hold-1"] } },
+      data: { status: "available", holdId: null },
+    });
+    const releaseOrder = vi.mocked(prisma.hold.updateManyAndReturn).mock.invocationCallOrder[0];
+    const groupByOrder = vi.mocked(prisma.seat.groupBy).mock.invocationCallOrder[0];
+    expect(releaseOrder).toBeLessThan(groupByOrder!);
+  });
 });
 
 describe("events.service listEvents", () => {
@@ -134,5 +168,19 @@ describe("events.service listSeats", () => {
 
     await expect(eventsService.listSeats("missing", {})).rejects.toThrow(NotFoundError);
     expect(prisma.seat.findMany).not.toHaveBeenCalled();
+  });
+
+  it("releases expired holds before reading seats, a no-op when none are expired", async () => {
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({ id: "evt-1" } as never);
+    vi.mocked(prisma.seat.findMany).mockResolvedValue([]);
+
+    await eventsService.listSeats("evt-1", {});
+
+    expect(prisma.hold.updateManyAndReturn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: "active", seats: { some: { eventId: "evt-1" } } }),
+      }),
+    );
+    expect(prisma.seat.updateMany).not.toHaveBeenCalled();
   });
 });

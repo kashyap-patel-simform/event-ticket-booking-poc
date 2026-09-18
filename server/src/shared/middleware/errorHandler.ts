@@ -3,7 +3,11 @@ import { AppError } from "../errors/AppError.js";
 
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
   if (err instanceof AppError) {
-    res.status(err.statusCode).json({ error: err.message, requestId: req.id });
+    res.status(err.statusCode).json({
+      error: err.message,
+      requestId: req.id,
+      ...(err.details !== undefined ? { details: err.details } : {}),
+    });
     return;
   }
 

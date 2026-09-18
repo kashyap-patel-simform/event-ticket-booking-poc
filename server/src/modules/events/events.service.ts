@@ -1,5 +1,6 @@
 import { NotFoundError } from "../../shared/errors/AppError.js";
 import { prisma } from "../../shared/lib/prisma.js";
+import * as holdsService from "../holds/holds.service.js";
 import type {
   CreateEventInput,
   EventDetail,
@@ -79,52 +80,63 @@ export async function listEvents(query: ListEventsQuery): Promise<PaginatedResul
 }
 
 export async function getEventById(eventId: string): Promise<EventDetail> {
-  const event = await prisma.event.findUnique({ where: { id: eventId } });
-  if (!event) {
-    throw new NotFoundError("Event not found");
-  }
+  return prisma.$transaction(async (tx) => {
+    const event = await tx.event.findUnique({ where: { id: eventId } });
+    if (!event) {
+      throw new NotFoundError("Event not found");
+    }
 
-  const grouped = await prisma.seat.groupBy({
-    by: ["status"],
-    where: { eventId },
-    _count: true,
+    // Lazy expiry: release any holds on this event's seats that have passed their TTL before
+    // reading current counts, so a stale `held` seat never shows as unavailable.
+    await holdsService.releaseExpiredHoldsForEvent(tx, eventId);
+
+    const grouped = await tx.seat.groupBy({
+      by: ["status"],
+      where: { eventId },
+      _count: true,
+    });
+
+    const seatCounts = { available: 0, held: 0, booked: 0 };
+    for (const row of grouped) {
+      seatCounts[row.status as keyof typeof seatCounts] = row._count;
+    }
+
+    return {
+      id: event.id,
+      organiserId: event.organiserId,
+      name: event.name,
+      date: event.date,
+      venue: event.venue,
+      priceCents: event.priceCents,
+      createdAt: event.createdAt,
+      seatCounts,
+    };
   });
-
-  const seatCounts = { available: 0, held: 0, booked: 0 };
-  for (const row of grouped) {
-    seatCounts[row.status as keyof typeof seatCounts] = row._count;
-  }
-
-  return {
-    id: event.id,
-    organiserId: event.organiserId,
-    name: event.name,
-    date: event.date,
-    venue: event.venue,
-    priceCents: event.priceCents,
-    createdAt: event.createdAt,
-    seatCounts,
-  };
 }
 
 export async function listSeats(eventId: string, query: ListSeatsQuery): Promise<SeatListItem[]> {
-  const event = await prisma.event.findUnique({
-    where: { id: eventId },
-    select: { id: true },
-  });
-  if (!event) {
-    throw new NotFoundError("Event not found");
-  }
+  return prisma.$transaction(async (tx) => {
+    const event = await tx.event.findUnique({
+      where: { id: eventId },
+      select: { id: true },
+    });
+    if (!event) {
+      throw new NotFoundError("Event not found");
+    }
 
-  const where = { eventId, ...(query.status ? { status: query.status } : {}) };
+    // Lazy expiry — see comment in getEventById.
+    await holdsService.releaseExpiredHoldsForEvent(tx, eventId);
 
-  // Not paginated — seat count is capped at 500/event (createEventSchema), and the
-  // frontend seat-picker layout needs the full set in one response to render a grid.
-  return prisma.seat.findMany({
-    where,
-    select: { id: true, label: true, status: true },
-    // `label` is "1".."500" and sorts lexicographically, not numerically — order by
-    // `id` (cuid, roughly insertion-ordered) instead.
-    orderBy: { id: "asc" },
+    const where = { eventId, ...(query.status ? { status: query.status } : {}) };
+
+    // Not paginated — seat count is capped at 500/event (createEventSchema), and the
+    // frontend seat-picker layout needs the full set in one response to render a grid.
+    return tx.seat.findMany({
+      where,
+      select: { id: true, label: true, status: true },
+      // `label` is "1".."500" and sorts lexicographically, not numerically — order by
+      // `id` (cuid, roughly insertion-ordered) instead.
+      orderBy: { id: "asc" },
+    });
   });
 }

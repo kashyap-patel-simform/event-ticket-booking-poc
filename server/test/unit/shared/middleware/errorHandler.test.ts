@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { describe, expect, it, vi } from "vitest";
-import { NotFoundError } from "../../../../src/shared/errors/AppError.js";
+import { ConflictError, NotFoundError } from "../../../../src/shared/errors/AppError.js";
 import { errorHandler } from "../../../../src/shared/middleware/errorHandler.js";
 
 function makeReqRes() {
@@ -28,6 +28,20 @@ describe("errorHandler", () => {
     expect(status).toHaveBeenCalledWith(404);
     expect(json).toHaveBeenCalledWith({ error: "seat not found", requestId: "req-123" });
     expect(logError).not.toHaveBeenCalled();
+  });
+
+  it("includes details in the response when the AppError carries them", () => {
+    const { req, res, status, json } = makeReqRes();
+    const err = new ConflictError("seats unavailable", { unavailableSeatIds: ["seat-1"] });
+
+    errorHandler(err, req, res, vi.fn());
+
+    expect(status).toHaveBeenCalledWith(409);
+    expect(json).toHaveBeenCalledWith({
+      error: "seats unavailable",
+      requestId: "req-123",
+      details: { unavailableSeatIds: ["seat-1"] },
+    });
   });
 
   it("maps an unknown error to a 500 with a generic message, logging the original error", () => {
