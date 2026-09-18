@@ -2,6 +2,7 @@ export class AppError extends Error {
   constructor(
     message: string,
     public readonly statusCode: number,
+    public readonly details?: unknown,
   ) {
     super(message);
     this.name = new.target.name;
@@ -15,8 +16,8 @@ export class NotFoundError extends AppError {
 }
 
 export class ConflictError extends AppError {
-  constructor(message = "Conflict") {
-    super(message, 409);
+  constructor(message = "Conflict", details?: unknown) {
+    super(message, 409, details);
   }
 }
 

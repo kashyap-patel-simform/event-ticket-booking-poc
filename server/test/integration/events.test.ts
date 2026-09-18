@@ -5,7 +5,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../src/shared/lib/prisma.js", () => ({
   prisma: {
     event: { create: vi.fn(), findUnique: vi.fn(), findMany: vi.fn(), count: vi.fn() },
-    seat: { createMany: vi.fn(), findMany: vi.fn(), count: vi.fn(), groupBy: vi.fn() },
+    seat: {
+      createMany: vi.fn(),
+      findMany: vi.fn(),
+      count: vi.fn(),
+      groupBy: vi.fn(),
+      updateMany: vi.fn(),
+    },
+    hold: { updateManyAndReturn: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -20,6 +27,7 @@ const futureDate = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString()
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(prisma.$transaction).mockImplementation((fn) => fn(prisma as never));
+  vi.mocked(prisma.hold.updateManyAndReturn).mockResolvedValue([]);
 });
 
 describe("POST /api/events", () => {

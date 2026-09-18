@@ -22,12 +22,33 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
   events       Event[]
+  holds        Hold[]
 }
 
 enum SeatStatus {
   available
   held
   booked
+}
+
+enum HoldStatus {
+  active
+  expired
+  converted
+  released
+}
+
+model Hold {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  status    HoldStatus @default(active)
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+  seats     Seat[]
+
+  @@index([userId])
+  @@index([status, expiresAt])
 }
 
 model Event {
@@ -51,7 +72,10 @@ model Seat {
   label     String
   status    SeatStatus @default(available)
   createdAt DateTime   @default(now())
+  holdId    String?
+  hold      Hold?      @relation(fields: [holdId], references: [id])
 
   @@unique([eventId, label])
   @@index([eventId])
+  @@index([holdId])
 }
