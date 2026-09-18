@@ -4,4 +4,10 @@ export const queryKeys = {
   auth: {
     currentUser: () => ["auth", "currentUser"] as const,
   },
+  events: {
+    lists: () => ["events", "list"] as const,
+    list: (page: number, limit: number) => ["events", "list", page, limit] as const,
+    detail: (id: string) => ["events", "detail", id] as const,
+    seats: (id: string) => ["events", "seats", id] as const,
+  },
 } as const;
