@@ -9,7 +9,12 @@
     { "key": "baseUrl", "value": "http://localhost:3000/api", "type": "string" },
     { "key": "token", "value": "", "type": "string" },
     { "key": "email", "value": "test@example.com", "type": "string" },
-    { "key": "password", "value": "password123", "type": "string" }
+    { "key": "password", "value": "password123", "type": "string" },
+    { "key": "eventId", "value": "", "type": "string" },
+    { "key": "seatId", "value": "", "type": "string" },
+    { "key": "holdId", "value": "", "type": "string" },
+    { "key": "paymentAttemptId", "value": "", "type": "string" },
+    { "key": "checkoutUrl", "value": "", "type": "string" }
   ],
   "item": [
     {
@@ -74,6 +79,188 @@
               }
             }
           ]
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "Create Event",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test Concert\",\n  \"date\": \"2027-06-01T19:00:00.000Z\",\n  \"venue\": \"Main Hall\",\n  \"priceCents\": 2500,\n  \"seatCount\": 10\n}"
+            },
+            "url": { "raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('eventId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Events",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/events", "host": ["{{baseUrl}}"], "path": ["events"] }
+          }
+        },
+        {
+          "name": "Get Event",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["events", "{{eventId}}"]
+            }
+          }
+        },
+        {
+          "name": "List Seats",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/seats",
+              "host": ["{{baseUrl}}"],
+              "path": ["events", "{{eventId}}", "seats"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const seats = pm.response.json();",
+                  "  const available = seats.find((s) => s.status === 'available');",
+                  "  if (available) pm.collectionVariables.set('seatId', available.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Holds",
+      "item": [
+        {
+          "name": "Create Hold",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"seatIds\": [\"{{seatId}}\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/events/{{eventId}}/holds",
+              "host": ["{{baseUrl}}"],
+              "path": ["events", "{{eventId}}", "holds"]
+            },
+            "description": "Run List Seats first so {{seatId}} is populated with a real available seat."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('holdId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Create Checkout Session",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/holds/{{holdId}}/checkout",
+              "host": ["{{baseUrl}}"],
+              "path": ["holds", "{{holdId}}", "checkout"]
+            },
+            "description": "No request body needed — the amount is computed server-side from the hold's seats. Run Create Hold first so {{holdId}} is populated. After sending, open the returned checkoutUrl in a browser and pay with Stripe test card 4242 4242 4242 4242 (any future expiry/CVC) to trigger a real webhook."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.collectionVariables.set('paymentAttemptId', body.paymentAttemptId);",
+                  "  pm.collectionVariables.set('checkoutUrl', body.checkoutUrl);",
+                  "  console.log('Open this URL to pay:', body.checkoutUrl);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stripe Webhook (reference only — do not send from Postman)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "stripe-signature", "value": "t=...,v1=... (Stripe computes this)" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"evt_...\",\n  \"type\": \"checkout.session.completed\",\n  \"data\": { \"object\": { \"id\": \"cs_...\", \"payment_intent\": \"pi_...\" } }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payments/webhook",
+              "host": ["{{baseUrl}}"],
+              "path": ["payments", "webhook"]
+            },
+            "description": "Sending this from Postman will fail signature verification (400) — the stripe-signature header is an HMAC over the exact raw body bytes, computed with your STRIPE_WEBHOOK_SECRET, which Postman can't reproduce. This entry exists purely for documentation. To actually exercise this endpoint locally, either: (1) run `stripe listen --forward-to localhost:3000/api/payments/webhook` and complete a real Checkout Session payment (see Create Checkout Session above), or (2) run `stripe trigger checkout.session.completed` to fire a synthetic test event through the same listener."
+          }
+        },
+        {
+          "name": "List My Bookings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/bookings", "host": ["{{baseUrl}}"], "path": ["bookings"] }
+          }
         }
       ]
     }

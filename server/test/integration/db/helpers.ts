@@ -1,14 +1,16 @@
+import { randomUUID } from "node:crypto";
 import jwt from "jsonwebtoken";
 import { env } from "../../../src/shared/lib/env.js";
 import { prisma } from "../../../src/shared/lib/prisma.js";
 
-let counter = 0;
-
 export async function createUser() {
-  const suffix = `${Date.now()}-${counter++}`;
+  // Every db-project test file shares one real Postgres container (see global-setup.ts), and
+  // each file gets its own module instance of this helper — a per-file counter combined with
+  // Date.now() can collide across files running in parallel workers if two happen to create
+  // their first user in the same millisecond. randomUUID() is unique regardless of parallelism.
   return prisma.user.create({
     data: {
-      email: `user-${suffix}@example.com`,
+      email: `user-${randomUUID()}@example.com`,
       name: "Test User",
       passwordHash: "not-a-real-hash", // these tests never exercise login, just the FK
     },
