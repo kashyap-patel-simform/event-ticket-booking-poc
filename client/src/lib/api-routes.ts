@@ -10,5 +10,12 @@ export const API_ROUTES = {
     CREATE: "/api/events",
     DETAIL: (id: string) => `/api/events/${id}`,
     SEATS: (id: string) => `/api/events/${id}/seats`,
+    HOLDS: (id: string) => `/api/events/${id}/holds`,
+  },
+  HOLDS: {
+    CHECKOUT: (holdId: string) => `/api/holds/${holdId}/checkout`,
+  },
+  BOOKINGS: {
+    LIST: "/api/bookings",
   },
 } as const;

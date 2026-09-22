@@ -17,9 +17,14 @@ function EventsListPage() {
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold">Events</h1>
-        <Link to="/events/new" className={buttonVariants()}>
-          Create Event
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/bookings" className={buttonVariants({ variant: "outline" })}>
+            My Bookings
+          </Link>
+          <Link to="/events/new" className={buttonVariants()}>
+            Create Event
+          </Link>
+        </div>
       </div>
 
       {isPending && <p className="text-muted-foreground">Loading events…</p>}

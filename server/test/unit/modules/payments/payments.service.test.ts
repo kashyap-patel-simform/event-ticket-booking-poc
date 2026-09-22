@@ -124,6 +124,7 @@ describe("payments.service createCheckoutSession", () => {
     expect(sessionCall?.line_items?.[0]).toMatchObject({
       price_data: expect.objectContaining({ unit_amount: 5000 }), // 2500 * 2 seats
     });
+    expect(sessionCall?.cancel_url).toBe("http://localhost:5173/checkout/cancel?eventId=evt-1");
     expect(prisma.paymentAttempt.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         holdId: "hold-1",
