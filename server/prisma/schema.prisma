@@ -16,13 +16,14 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String    @id @default(cuid())
+  email        String    @unique
   name         String
   passwordHash String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
   events       Event[]
   holds        Hold[]
+  bookings     Booking[]
 }
 
 enum SeatStatus {
@@ -39,28 +40,30 @@ enum HoldStatus {
 }
 
 model Hold {
-  id        String     @id @default(cuid())
-  userId    String
-  user      User       @relation(fields: [userId], references: [id])
-  status    HoldStatus @default(active)
-  expiresAt DateTime
-  createdAt DateTime   @default(now())
-  seats     Seat[]
+  id              String           @id @default(cuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id])
+  status          HoldStatus       @default(active)
+  expiresAt       DateTime
+  createdAt       DateTime         @default(now())
+  seats           Seat[]
+  paymentAttempts PaymentAttempt[]
 
   @@index([userId])
   @@index([status, expiresAt])
 }
 
 model Event {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   organiserId String
-  organiser   User     @relation(fields: [organiserId], references: [id])
+  organiser   User      @relation(fields: [organiserId], references: [id])
   name        String
   date        DateTime
   venue       String
   priceCents  Int
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
   seats       Seat[]
+  bookings    Booking[]
 
   @@index([organiserId])
 }
@@ -74,8 +77,64 @@ model Seat {
   createdAt DateTime   @default(now())
   holdId    String?
   hold      Hold?      @relation(fields: [holdId], references: [id])
+  bookingId String?
+  booking   Booking?   @relation(fields: [bookingId], references: [id])
 
   @@unique([eventId, label])
   @@index([eventId])
   @@index([holdId])
+  @@index([bookingId])
+}
+
+enum PaymentAttemptStatus {
+  pending
+  succeeded
+  failed
+  refunded
+}
+
+enum BookingStatus {
+  confirmed
+  refunded
+  cancelled
+}
+
+model PaymentAttempt {
+  id                      String               @id @default(cuid())
+  holdId                  String
+  hold                    Hold                 @relation(fields: [holdId], references: [id])
+  stripeCheckoutSessionId String               @unique
+  stripePaymentIntentId   String?              @unique
+  status                  PaymentAttemptStatus @default(pending)
+  amountCents             Int
+  currency                String               @default("usd")
+  createdAt               DateTime             @default(now())
+  booking                 Booking?
+
+  @@index([holdId])
+}
+
+model Booking {
+  id               String         @id @default(cuid())
+  userId           String
+  user             User           @relation(fields: [userId], references: [id])
+  eventId          String
+  event            Event          @relation(fields: [eventId], references: [id])
+  paymentAttemptId String         @unique
+  paymentAttempt   PaymentAttempt @relation(fields: [paymentAttemptId], references: [id])
+  ticketReference  String         @unique
+  status           BookingStatus  @default(confirmed)
+  createdAt        DateTime       @default(now())
+  seats            Seat[]
+
+  @@index([userId])
+  @@index([eventId])
+}
+
+// `id` is Stripe's own event id ("evt_..."), supplied explicitly — no @default(cuid()). That's
+// what makes the unique-constraint insert double as the webhook idempotency gate.
+model StripeEvent {
+  id          String   @id
+  type        String
+  processedAt DateTime @default(now())
 }

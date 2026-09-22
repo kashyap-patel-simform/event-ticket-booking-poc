@@ -45,4 +45,16 @@ describe("env", () => {
 
     await expect(import("../../../../src/shared/lib/env.js")).rejects.toThrow();
   });
+
+  it("throws when STRIPE_SECRET_KEY is absent", async () => {
+    delete process.env.STRIPE_SECRET_KEY;
+
+    await expect(import("../../../../src/shared/lib/env.js")).rejects.toThrow();
+  });
+
+  it("throws when STRIPE_WEBHOOK_SECRET is absent", async () => {
+    delete process.env.STRIPE_WEBHOOK_SECRET;
+
+    await expect(import("../../../../src/shared/lib/env.js")).rejects.toThrow();
+  });
 });
