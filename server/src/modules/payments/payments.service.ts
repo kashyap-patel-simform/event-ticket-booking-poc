@@ -37,13 +37,16 @@ export async function createCheckoutSession(
     throw new ConflictError("This hold is no longer active");
   }
 
-  const event = await prisma.event.findUniqueOrThrow({ where: { id: hold.seats[0]!.eventId } });
+  const eventId = hold.seats[0]!.eventId;
+  const event = await prisma.event.findUniqueOrThrow({ where: { id: eventId } });
   const amountCents = event.priceCents * hold.seats.length;
 
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     success_url: `${env.CLIENT_ORIGIN}${CHECKOUT_SUCCESS_PATH}?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${env.CLIENT_ORIGIN}${CHECKOUT_CANCEL_PATH}`,
+    // eventId lets the cancel page link back to the event the user was trying to book; the
+    // success page doesn't need it since listMyBookings already returns the event name.
+    cancel_url: `${env.CLIENT_ORIGIN}${CHECKOUT_CANCEL_PATH}?eventId=${eventId}`,
     expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_SESSION_EXPIRES_SECONDS,
     line_items: [
       {

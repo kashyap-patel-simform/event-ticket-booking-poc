@@ -87,4 +87,15 @@ describe("EventsListPage", () => {
       "/events/new",
     );
   });
+
+  it('has a "My Bookings" link to /bookings', async () => {
+    mockedListEventsRequest.mockResolvedValue({ data: [], page: 1, limit: 20, total: 0 });
+
+    renderWithProviders(<EventsListPage />, "/");
+
+    expect(await screen.findByRole("link", { name: /my bookings/i })).toHaveAttribute(
+      "href",
+      "/bookings",
+    );
+  });
 });

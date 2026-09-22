@@ -10,4 +10,7 @@ export const queryKeys = {
     detail: (id: string) => ["events", "detail", id] as const,
     seats: (id: string) => ["events", "seats", id] as const,
   },
+  bookings: {
+    mine: () => ["bookings", "mine"] as const,
+  },
 } as const;
