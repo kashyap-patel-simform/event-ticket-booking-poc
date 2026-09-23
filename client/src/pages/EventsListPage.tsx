@@ -1,53 +1,67 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useEventsQuery } from "@/features/events/hooks/useEventsQuery";
-import { formatDate, formatPriceCents } from "@/lib/format";
+import { formatDateBadge, formatPriceCents } from "@/lib/format";
 
 const LIMIT = 20;
+
+function EventRowSkeleton() {
+  return (
+    <div className="flex items-center gap-4 py-4">
+      <Skeleton className="h-12 w-14 shrink-0 rounded-md" />
+      <div className="min-w-0 flex-1 space-y-2">
+        <Skeleton className="h-4 w-1/2" />
+        <Skeleton className="h-3 w-1/3" />
+      </div>
+      <Skeleton className="h-4 w-20 shrink-0" />
+    </div>
+  );
+}
 
 function EventsListPage() {
   const [page, setPage] = useState(1);
   const { data, isPending, isError } = useEventsQuery(page, LIMIT);
 
+  useEffect(() => {
+    if (isError) toast.error("Failed to load events.");
+  }, [isError]);
+
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Events</h1>
-        <div className="flex gap-2">
-          <Link to="/bookings" className={buttonVariants({ variant: "outline" })}>
-            My Bookings
-          </Link>
-          <Link to="/events/new" className={buttonVariants()}>
-            Create Event
-          </Link>
-        </div>
-      </div>
+      <h1 className="mb-6 text-xl font-semibold">Events</h1>
 
-      {isPending && <p className="text-muted-foreground">Loading events…</p>}
-      {isError && <p className="text-destructive">Failed to load events.</p>}
       {data && data.data.length === 0 && <p className="text-muted-foreground">No events yet.</p>}
 
-      <div className="grid grid-cols-2 gap-4">
-        {data?.data.map((event) => (
-          <Link key={event.id} to={`/events/${event.id}`}>
-            <Card>
-              <CardHeader>
-                <CardTitle>{event.name}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1 text-sm text-muted-foreground">
-                <p>{formatDate(event.date)}</p>
-                <p>{event.venue}</p>
-                <p>
-                  {formatPriceCents(event.priceCents)} · {event.seatCount} seats
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+      <div className="divide-y divide-border">
+        {isPending
+          ? Array.from({ length: 5 }, (_, i) => <EventRowSkeleton key={i} />)
+          : data?.data.map((event) => {
+              const { month, day } = formatDateBadge(event.date);
+              return (
+                <Link
+                  key={event.id}
+                  to={`/events/${event.id}`}
+                  className="flex items-center gap-4 py-4 transition-colors hover:bg-muted/50"
+                >
+                  <div className="flex w-14 shrink-0 flex-col items-center rounded-md bg-primary py-1.5 text-primary-foreground">
+                    <span className="text-xs font-medium leading-none">{month}</span>
+                    <span className="text-lg leading-tight font-bold">{day}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold">{event.name}</p>
+                    <span className="text-sm text-muted-foreground">{event.venue}</span>
+                  </div>
+                  <p className="shrink-0 text-right text-sm text-muted-foreground">
+                    {formatPriceCents(event.priceCents)} · {event.seatCount} seats
+                  </p>
+                </Link>
+              );
+            })}
       </div>
 
       {data && data.total > 0 && (

@@ -77,25 +77,6 @@ describe("EventsListPage", () => {
     expect(mockedListEventsRequest).toHaveBeenCalledWith({ page: 2, limit: 20 });
   });
 
-  it('has a "Create Event" link to /events/new', async () => {
-    mockedListEventsRequest.mockResolvedValue({ data: [], page: 1, limit: 20, total: 0 });
-
-    renderWithProviders(<EventsListPage />, "/");
-
-    expect(await screen.findByRole("link", { name: /create event/i })).toHaveAttribute(
-      "href",
-      "/events/new",
-    );
-  });
-
-  it('has a "My Bookings" link to /bookings', async () => {
-    mockedListEventsRequest.mockResolvedValue({ data: [], page: 1, limit: 20, total: 0 });
-
-    renderWithProviders(<EventsListPage />, "/");
-
-    expect(await screen.findByRole("link", { name: /my bookings/i })).toHaveAttribute(
-      "href",
-      "/bookings",
-    );
-  });
+  // "Create Event" / "My Bookings" nav links moved into AppShell's header (see AppShell.test.tsx)
+  // as part of the responsive-layout refresh (docs/ui-refresh.md) — no longer owned by this page.
 });

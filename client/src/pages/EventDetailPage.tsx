@@ -3,6 +3,7 @@ import { Calendar, MapPin, Ticket } from "lucide-react";
 import { useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import SeatGrid from "@/features/events/components/SeatGrid";
 import { useEventQuery } from "@/features/events/hooks/useEventQuery";
 import { useSeatsQuery } from "@/features/events/hooks/useSeatsQuery";
@@ -60,7 +61,18 @@ function EventDetailPage() {
 
   return (
     <div className="p-6">
-      {isEventPending && <p className="text-muted-foreground">Loading event…</p>}
+      {isEventPending && (
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-5 w-1/2" />
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Skeleton className="h-4 w-2/5" />
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-4 w-1/4" />
+          </CardContent>
+        </Card>
+      )}
       {isEventError && <p className="text-destructive">Event not found.</p>}
 
       {event && (
@@ -91,7 +103,17 @@ function EventDetailPage() {
             <CardTitle>Seats</CardTitle>
           </CardHeader>
           <CardContent>
-            {isSeatsPending && <p className="text-muted-foreground">Loading seats…</p>}
+            {isSeatsPending && (
+              <div className="space-y-2">
+                {Array.from({ length: 2 }, (_, row) => (
+                  <div key={row} className="flex justify-center gap-2">
+                    {Array.from({ length: 10 }, (_, seat) => (
+                      <Skeleton key={seat} className="size-6 rounded" />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
             {seats && (
               <SeatGrid
                 seats={seats}
