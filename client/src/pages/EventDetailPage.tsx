@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import SeatGrid from "@/features/events/components/SeatGrid";
 import { useEventQuery } from "@/features/events/hooks/useEventQuery";
 import { useSeatsQuery } from "@/features/events/hooks/useSeatsQuery";
+import { useSeatsStream } from "@/features/events/hooks/useSeatsStream";
 import { useCountdown } from "@/features/holds/hooks/useCountdown";
 import { useCreateHoldMutation } from "@/features/holds/hooks/useCreateHoldMutation";
 import type { Hold } from "@/features/holds/schemas/holds.schemas";
@@ -18,6 +19,7 @@ function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>();
   const { data: event, isPending: isEventPending, isError: isEventError } = useEventQuery(eventId);
   const { data: seats, isPending: isSeatsPending } = useSeatsQuery(eventId);
+  useSeatsStream(eventId);
 
   const [selectedSeatIds, setSelectedSeatIds] = useState<Set<string>>(new Set());
   const [activeHold, setActiveHold] = useState<Hold | null>(null);

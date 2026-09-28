@@ -19,6 +19,10 @@ vi.mock("../../../../src/shared/lib/stripe.js", () => ({
   },
 }));
 
+vi.mock("../../../../src/shared/lib/sse-hub.js", () => ({
+  publishSeatsUpdated: vi.fn(),
+}));
+
 import { Prisma } from "../../../../src/generated/prisma/client.js";
 import * as paymentsService from "../../../../src/modules/payments/payments.service.js";
 import {
@@ -27,6 +31,7 @@ import {
   NotFoundError,
 } from "../../../../src/shared/errors/AppError.js";
 import { prisma } from "../../../../src/shared/lib/prisma.js";
+import { publishSeatsUpdated } from "../../../../src/shared/lib/sse-hub.js";
 import { stripe } from "../../../../src/shared/lib/stripe.js";
 
 const noopLog = { info: vi.fn(), warn: vi.fn(), error: vi.fn() } as never;
@@ -206,6 +211,10 @@ describe("payments.service processStripeEvent", () => {
       data: { status: "succeeded", stripePaymentIntentId: "pi_1" },
     });
     expect(stripe.refunds.create).not.toHaveBeenCalled();
+    expect(publishSeatsUpdated).toHaveBeenCalledWith("evt-1", [
+      { id: "seat-1", status: "booked" },
+      { id: "seat-2", status: "booked" },
+    ]);
   });
 
   it("refunds instead of booking when the hold already expired", async () => {
@@ -225,6 +234,7 @@ describe("payments.service processStripeEvent", () => {
       where: { id: "attempt-1" },
       data: { status: "refunded", stripePaymentIntentId: "pi_1" },
     });
+    expect(publishSeatsUpdated).not.toHaveBeenCalled();
   });
 
   it("refunds an orphaned session with no matching payment attempt", async () => {
