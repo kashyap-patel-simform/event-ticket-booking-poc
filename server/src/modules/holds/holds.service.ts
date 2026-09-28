@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "../../generated/prisma/client.js";
 import { ConflictError, NotFoundError, ValidationError } from "../../shared/errors/AppError.js";
 import { prisma } from "../../shared/lib/prisma.js";
+import { publishSeatsUpdated } from "../../shared/lib/sse-hub.js";
 import type { CreateHoldInput, HoldResult } from "./holds.types.js";
 
 // Checkout hold window — fixed for this POC, not configurable per environment.
@@ -30,10 +31,13 @@ export async function releaseExpiredHoldsForEvent(db: Db, eventId: string): Prom
 
   if (expired.length === 0) return;
 
-  await db.seat.updateMany({
+  const released = await db.seat.updateManyAndReturn({
     where: { holdId: { in: expired.map((hold) => hold.id) } },
     data: { status: "available", holdId: null },
+    select: { id: true, status: true },
   });
+
+  publishSeatsUpdated(eventId, released);
 }
 
 export async function createHold(
@@ -93,6 +97,11 @@ export async function createHold(
 
     return { hold: createdHold, seats: requestedSeats };
   });
+
+  publishSeatsUpdated(
+    eventId,
+    seats.map((seat) => ({ id: seat.id, status: "held" as const })),
+  );
 
   return {
     id: hold.id,

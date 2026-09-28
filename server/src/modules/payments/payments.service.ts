@@ -6,6 +6,7 @@ import { ConflictError, ForbiddenError, NotFoundError } from "../../shared/error
 import { env } from "../../shared/lib/env.js";
 import { logger as rootLogger } from "../../shared/lib/logger.js";
 import { prisma } from "../../shared/lib/prisma.js";
+import { publishSeatsUpdated } from "../../shared/lib/sse-hub.js";
 import { stripe } from "../../shared/lib/stripe.js";
 import type { BookingListItem, CheckoutSessionResult } from "./payments.types.js";
 
@@ -218,6 +219,11 @@ async function finalizeOrRefundCheckoutSession(
     await refundPaymentIntent(paymentIntentId, attempt.id, attemptCorrelation, log);
     return;
   }
+
+  publishSeatsUpdated(
+    eventId,
+    seatIds.map((id) => ({ id, status: "booked" as const })),
+  );
 
   log.info("Booking finalized from Stripe checkout", {
     ...attemptCorrelation,

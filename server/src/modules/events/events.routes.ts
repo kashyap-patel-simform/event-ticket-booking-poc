@@ -6,6 +6,7 @@ import {
   getEventHandler,
   listEventsHandler,
   listSeatsHandler,
+  streamSeatsHandler,
 } from "./events.controller.js";
 import { createEventSchema, listEventsQuerySchema, listSeatsQuerySchema } from "./events.types.js";
 
@@ -20,3 +21,6 @@ eventsRouter.get(
   validate(listSeatsQuerySchema, "query"),
   listSeatsHandler,
 );
+// No authGuard/validate — EventSource can't send an Authorization header, so this route
+// hand-rolls its own query-param auth (see streamSeatsHandler).
+eventsRouter.get("/:id/seats/stream", streamSeatsHandler);

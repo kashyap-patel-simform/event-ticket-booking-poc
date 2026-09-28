@@ -9,10 +9,15 @@ vi.mock("../../../../src/shared/lib/prisma.js", () => ({
       count: vi.fn(),
       groupBy: vi.fn(),
       updateMany: vi.fn(),
+      updateManyAndReturn: vi.fn(),
     },
     hold: { updateManyAndReturn: vi.fn() },
     $transaction: vi.fn(),
   },
+}));
+
+vi.mock("../../../../src/shared/lib/sse-hub.js", () => ({
+  publishSeatsUpdated: vi.fn(),
 }));
 
 import * as eventsService from "../../../../src/modules/events/events.service.js";
@@ -107,13 +112,15 @@ describe("events.service getEventById", () => {
       createdAt: now,
     });
     vi.mocked(prisma.hold.updateManyAndReturn).mockResolvedValue([{ id: "hold-1" }] as never);
+    vi.mocked(prisma.seat.updateManyAndReturn).mockResolvedValue([] as never);
     vi.mocked(prisma.seat.groupBy).mockResolvedValue([]);
 
     await eventsService.getEventById("evt-1");
 
-    expect(prisma.seat.updateMany).toHaveBeenCalledWith({
+    expect(prisma.seat.updateManyAndReturn).toHaveBeenCalledWith({
       where: { holdId: { in: ["hold-1"] } },
       data: { status: "available", holdId: null },
+      select: { id: true, status: true },
     });
     const releaseOrder = vi.mocked(prisma.hold.updateManyAndReturn).mock.invocationCallOrder[0];
     const groupByOrder = vi.mocked(prisma.seat.groupBy).mock.invocationCallOrder[0];

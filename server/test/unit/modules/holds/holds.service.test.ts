@@ -3,10 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../../../src/shared/lib/prisma.js", () => ({
   prisma: {
     event: { findUnique: vi.fn() },
-    seat: { findMany: vi.fn(), updateMany: vi.fn() },
+    seat: { findMany: vi.fn(), updateMany: vi.fn(), updateManyAndReturn: vi.fn() },
     hold: { create: vi.fn(), updateManyAndReturn: vi.fn() },
     $transaction: vi.fn(),
   },
+}));
+
+vi.mock("../../../../src/shared/lib/sse-hub.js", () => ({
+  publishSeatsUpdated: vi.fn(),
 }));
 
 import * as holdsService from "../../../../src/modules/holds/holds.service.js";
@@ -16,6 +20,7 @@ import {
   ValidationError,
 } from "../../../../src/shared/errors/AppError.js";
 import { prisma } from "../../../../src/shared/lib/prisma.js";
+import { publishSeatsUpdated } from "../../../../src/shared/lib/sse-hub.js";
 
 const FUTURE_DATE = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
 const PAST_DATE = new Date(Date.now() - 1000 * 60 * 60 * 24);
@@ -110,6 +115,10 @@ describe("holds.service createHold", () => {
       where: { eventId: "evt-1", id: { in: ["seat-1", "seat-2"] }, status: "available" },
       data: { status: "held", holdId: "hold-1" },
     });
+    expect(publishSeatsUpdated).toHaveBeenCalledWith("evt-1", [
+      { id: "seat-1", status: "held" },
+      { id: "seat-2", status: "held" },
+    ]);
   });
 });
 
@@ -119,20 +128,30 @@ describe("holds.service releaseExpiredHoldsForEvent", () => {
 
     await holdsService.releaseExpiredHoldsForEvent(prisma as never, "evt-1");
 
-    expect(prisma.seat.updateMany).not.toHaveBeenCalled();
+    expect(prisma.seat.updateManyAndReturn).not.toHaveBeenCalled();
+    expect(publishSeatsUpdated).not.toHaveBeenCalled();
   });
 
-  it("releases every seat belonging to a newly expired hold", async () => {
+  it("releases every seat belonging to a newly expired hold and broadcasts the release", async () => {
     vi.mocked(prisma.hold.updateManyAndReturn).mockResolvedValue([
       { id: "hold-1" },
       { id: "hold-2" },
     ] as never);
+    vi.mocked(prisma.seat.updateManyAndReturn).mockResolvedValue([
+      { id: "seat-1", status: "available" },
+      { id: "seat-2", status: "available" },
+    ] as never);
 
     await holdsService.releaseExpiredHoldsForEvent(prisma as never, "evt-1");
 
-    expect(prisma.seat.updateMany).toHaveBeenCalledWith({
+    expect(prisma.seat.updateManyAndReturn).toHaveBeenCalledWith({
       where: { holdId: { in: ["hold-1", "hold-2"] } },
       data: { status: "available", holdId: null },
+      select: { id: true, status: true },
     });
+    expect(publishSeatsUpdated).toHaveBeenCalledWith("evt-1", [
+      { id: "seat-1", status: "available" },
+      { id: "seat-2", status: "available" },
+    ]);
   });
 });

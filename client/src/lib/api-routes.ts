@@ -10,6 +10,7 @@ export const API_ROUTES = {
     CREATE: "/api/events",
     DETAIL: (id: string) => `/api/events/${id}`,
     SEATS: (id: string) => `/api/events/${id}/seats`,
+    SEATS_STREAM: (id: string) => `/api/events/${id}/seats/stream`,
     HOLDS: (id: string) => `/api/events/${id}/holds`,
   },
   HOLDS: {
