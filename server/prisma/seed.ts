@@ -4,14 +4,18 @@ import { prisma } from "../src/shared/lib/prisma.js";
 const SALT_ROUNDS = 10;
 const SEED_PASSWORD = "Password123!";
 
-const organisers = [
-  { name: "Alice Bennett", email: "alice.bennett@venuehub.example" },
-  { name: "Marcus Ortiz", email: "marcus.ortiz@venuehub.example" },
+// This app has no role field on User — "organiser" vs "regular user" is purely a matter of which
+// account happens to own the seeded events. Any user can create events via the API too; these two
+// buyers are just seeded without any of their own, so there's something to browse/hold/book
+// against right away.
+const ORGANISER = { name: "Alice Bennett", email: "alice.bennett@venuehub.example" };
+const BUYERS = [
+  { name: "Priya Sharma", email: "priya.sharma@example.com" },
+  { name: "Daniel Kim", email: "daniel.kim@example.com" },
 ];
 
 const events = [
   {
-    organiser: "alice.bennett@venuehub.example",
     name: "Coldplay: Music of the Spheres World Tour",
     venue: "Wembley Stadium, London",
     date: "2027-06-12T19:00:00.000Z",
@@ -19,7 +23,6 @@ const events = [
     seatCount: 120,
   },
   {
-    organiser: "alice.bennett@venuehub.example",
     name: "Hamilton",
     venue: "Victoria Palace Theatre, London",
     date: "2027-03-04T19:30:00.000Z",
@@ -27,7 +30,6 @@ const events = [
     seatCount: 80,
   },
   {
-    organiser: "marcus.ortiz@venuehub.example",
     name: "Arijit Singh Live in Concert",
     venue: "Jawaharlal Nehru Stadium, Delhi",
     date: "2027-01-18T18:30:00.000Z",
@@ -35,7 +37,6 @@ const events = [
     seatCount: 200,
   },
   {
-    organiser: "marcus.ortiz@venuehub.example",
     name: "Ed Sheeran: Mathematics Tour",
     venue: "Principality Stadium, Cardiff",
     date: "2027-07-09T19:00:00.000Z",
@@ -43,10 +44,9 @@ const events = [
     seatCount: 150,
   },
   {
-    organiser: "marcus.ortiz@venuehub.example",
     name: "Trevor Noah: Off the Record",
     venue: "Royal Albert Hall, London",
-    date: "2026-11-22T20:00:00.000Z",
+    date: "2027-02-22T20:00:00.000Z",
     priceCents: 4500,
     seatCount: 60,
   },
@@ -55,25 +55,25 @@ const events = [
 async function main() {
   const passwordHash = await bcrypt.hash(SEED_PASSWORD, SALT_ROUNDS);
 
-  const organiserIdByEmail = new Map<string, string>();
-  for (const organiser of organisers) {
+  const organiser = await prisma.user.upsert({
+    where: { email: ORGANISER.email },
+    update: {},
+    create: { name: ORGANISER.name, email: ORGANISER.email, passwordHash },
+  });
+  console.log(`Organiser ready: ${organiser.name} <${organiser.email}>`);
+
+  for (const buyer of BUYERS) {
     const user = await prisma.user.upsert({
-      where: { email: organiser.email },
+      where: { email: buyer.email },
       update: {},
-      create: { name: organiser.name, email: organiser.email, passwordHash },
+      create: { name: buyer.name, email: buyer.email, passwordHash },
     });
-    organiserIdByEmail.set(organiser.email, user.id);
-    console.log(`Organiser ready: ${user.name} <${user.email}>`);
+    console.log(`Buyer ready: ${user.name} <${user.email}>`);
   }
 
   for (const event of events) {
-    const organiserId = organiserIdByEmail.get(event.organiser);
-    if (!organiserId) {
-      throw new Error(`No seeded organiser found for email ${event.organiser}`);
-    }
-
     const existing = await prisma.event.findFirst({
-      where: { organiserId, name: event.name },
+      where: { organiserId: organiser.id, name: event.name },
     });
     if (existing) {
       console.log(`Skipping (already seeded): ${event.name}`);
@@ -83,7 +83,7 @@ async function main() {
     await prisma.$transaction(async (tx) => {
       const created = await tx.event.create({
         data: {
-          organiserId,
+          organiserId: organiser.id,
           name: event.name,
           date: new Date(event.date),
           venue: event.venue,
@@ -102,7 +102,7 @@ async function main() {
     console.log(`Created: ${event.name} (${event.seatCount} seats)`);
   }
 
-  console.log(`\nSeed login for any organiser above: password "${SEED_PASSWORD}"`);
+  console.log(`\nSeed login for any account above: password "${SEED_PASSWORD}"`);
 }
 
 main()
