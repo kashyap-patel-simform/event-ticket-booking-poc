@@ -19,3 +19,8 @@ export interface BookingListItem {
   createdAt: Date;
   seats: BookingSeat[];
 }
+
+export interface CheckoutSessionStatusResult {
+  status: "pending" | "succeeded" | "failed" | "refunded";
+  booking: BookingListItem | null;
+}

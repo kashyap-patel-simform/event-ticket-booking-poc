@@ -21,3 +21,8 @@ export interface Booking {
   createdAt: string;
   seats: BookingSeat[];
 }
+
+export interface CheckoutSessionStatus {
+  status: "pending" | "succeeded" | "failed" | "refunded";
+  booking: Booking | null;
+}

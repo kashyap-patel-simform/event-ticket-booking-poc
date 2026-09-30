@@ -5,7 +5,7 @@ import { publishSeatsUpdated } from "../../shared/lib/sse-hub.js";
 import type { CreateHoldInput, HoldResult } from "./holds.types.js";
 
 // Checkout hold window — fixed for this POC, not configurable per environment.
-export const HOLD_TTL_MS = 5 * 60 * 1000;
+export const HOLD_TTL_MS = 2 * 60 * 1000;
 
 /** Any Prisma client usable both standalone and inside an interactive transaction. */
 type Db = PrismaClient | Prisma.TransactionClient;

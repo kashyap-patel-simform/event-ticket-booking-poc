@@ -13,4 +13,7 @@ export const queryKeys = {
   bookings: {
     mine: () => ["bookings", "mine"] as const,
   },
+  checkoutSessions: {
+    status: (sessionId: string) => ["checkoutSessions", "status", sessionId] as const,
+  },
 } as const;
