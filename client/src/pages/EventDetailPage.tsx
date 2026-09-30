@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Calendar, MapPin, Ticket } from "lucide-react";
-import { useParams } from "react-router";
+import { ArrowLeft, Calendar, MapPin, Ticket } from "lucide-react";
+import { Link, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,6 +32,18 @@ function EventDetailPage() {
   const hasActiveHold = !!activeHold && !isExpired;
   const holdJustExpired = !!activeHold && isExpired;
 
+  // A selected seat can go stale — someone else holds/books it while this user is still deciding
+  // (via the SSE stream) or a hold request partially fails. It then renders as a disabled,
+  // non-interactive seat, so the user has no way to deselect it themselves; drop it from the
+  // effective selection here (derived, not written back to state) so the count/total and the
+  // hold request never get stuck on a seat that's no longer selectable.
+  const availableSeatIds = new Set(
+    (seats ?? []).filter((seat) => seat.status === "available").map((seat) => seat.id),
+  );
+  const effectiveSelectedSeatIds = new Set(
+    [...selectedSeatIds].filter((id) => availableSeatIds.has(id)),
+  );
+
   function toggleSeat(seatId: string) {
     setSelectedSeatIds((prev) => {
       const next = new Set(prev);
@@ -45,7 +57,7 @@ function EventDetailPage() {
   }
 
   function handleHoldSeats() {
-    createHoldMutation.mutate(Array.from(selectedSeatIds), {
+    createHoldMutation.mutate(Array.from(effectiveSelectedSeatIds), {
       onSuccess: (hold) => setActiveHold(hold),
     });
   }
@@ -55,14 +67,22 @@ function EventDetailPage() {
     createCheckoutMutation.mutate(activeHold.id);
   }
 
-  const selectedCount = selectedSeatIds.size;
+  const selectedCount = effectiveSelectedSeatIds.size;
   const selectedTotalCents = event ? event.priceCents * selectedCount : 0;
   const gridSelectedSeatIds = hasActiveHold
     ? new Set(activeHold!.seats.map((seat) => seat.id))
-    : selectedSeatIds;
+    : effectiveSelectedSeatIds;
 
   return (
     <div className="p-6">
+      <Link
+        to="/"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeft className="size-4" />
+        Back to Events
+      </Link>
+
       {isEventPending && (
         <Card>
           <CardHeader>
