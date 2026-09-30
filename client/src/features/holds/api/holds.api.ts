@@ -8,3 +8,7 @@ export function createHoldRequest(eventId: string, seatIds: string[]) {
     body: JSON.stringify({ seatIds }),
   });
 }
+
+export function getActiveHoldRequest(eventId: string) {
+  return apiFetch<Hold | null>(API_ROUTES.EVENTS.ACTIVE_HOLD(eventId));
+}

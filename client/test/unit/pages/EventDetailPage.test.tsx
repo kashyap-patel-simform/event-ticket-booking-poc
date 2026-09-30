@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEventRequest, listSeatsRequest } from "@/features/events/api/events.api";
-import { createHoldRequest } from "@/features/holds/api/holds.api";
+import { createHoldRequest, getActiveHoldRequest } from "@/features/holds/api/holds.api";
 import { createCheckoutRequest } from "@/features/payments/api/payments.api";
 import { ApiError } from "@/lib/api-client";
 import EventDetailPage from "@/pages/EventDetailPage";
@@ -14,6 +14,7 @@ vi.mock("@/features/payments/api/payments.api");
 const mockedGetEventRequest = vi.mocked(getEventRequest);
 const mockedListSeatsRequest = vi.mocked(listSeatsRequest);
 const mockedCreateHoldRequest = vi.mocked(createHoldRequest);
+const mockedGetActiveHoldRequest = vi.mocked(getActiveHoldRequest);
 const mockedCreateCheckoutRequest = vi.mocked(createCheckoutRequest);
 
 const EVENT = {
@@ -32,6 +33,10 @@ beforeEach(() => {
   mockedListSeatsRequest.mockReset();
   mockedCreateHoldRequest.mockReset();
   mockedCreateCheckoutRequest.mockReset();
+  mockedGetActiveHoldRequest.mockReset();
+  // Default: no pre-existing hold from a prior visit — matches every existing test's expectations.
+  // Tests that care about hold-recovery override this explicitly.
+  mockedGetActiveHoldRequest.mockResolvedValue(null);
 });
 
 describe("EventDetailPage", () => {
@@ -113,6 +118,23 @@ describe("EventDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /hold 1 seat/i }));
 
     expect(await screen.findByText("Seat no longer available")).toBeInTheDocument();
+  });
+
+  it("recovers an already-active hold on mount, e.g. after a page refresh", async () => {
+    mockedGetEventRequest.mockResolvedValue(EVENT);
+    mockedListSeatsRequest.mockResolvedValue([{ id: "s1", label: "1", status: "held" }]);
+    mockedGetActiveHoldRequest.mockResolvedValue({
+      id: "hold-1",
+      status: "active",
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      seats: [{ id: "s1", label: "1" }],
+    });
+
+    renderWithProviders(<EventDetailPage />, "/events/evt-1", "/events/:eventId");
+
+    expect(await screen.findByText(/held — expires in/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /pay now/i })).toBeInTheDocument();
+    expect(screen.queryByText(/select seats to hold them/i)).not.toBeInTheDocument();
   });
 
   it("redirects to Stripe checkout when Pay Now succeeds", async () => {

@@ -12,6 +12,7 @@ export const API_ROUTES = {
     SEATS: (id: string) => `/api/events/${id}/seats`,
     SEATS_STREAM: (id: string) => `/api/events/${id}/seats/stream`,
     HOLDS: (id: string) => `/api/events/${id}/holds`,
+    ACTIVE_HOLD: (id: string) => `/api/events/${id}/holds/mine`,
   },
   HOLDS: {
     CHECKOUT: (holdId: string) => `/api/holds/${holdId}/checkout`,
