@@ -41,20 +41,6 @@ function SeatGrid({ seats, selectedSeatIds, onToggleSeat, disabled = false }: Se
 
   return (
     <div>
-      <svg
-        viewBox="0 0 300 40"
-        className="mx-auto mb-6 h-10 w-full max-w-xs text-accent"
-        aria-hidden="true"
-      >
-        <path
-          d="M10 35 Q150 -10 290 35"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-      </svg>
-
       <div className="space-y-2">
         {rows.map((row, i) => (
           <div key={i} className="flex justify-center gap-2">

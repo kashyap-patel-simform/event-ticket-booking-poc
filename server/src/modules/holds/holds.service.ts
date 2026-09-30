@@ -40,6 +40,41 @@ export async function releaseExpiredHoldsForEvent(db: Db, eventId: string): Prom
   publishSeatsUpdated(eventId, released);
 }
 
+// Lets a client recover its own in-progress hold after a page refresh (or a browser-back from
+// Stripe) — without this, `activeHold` only ever existed as client-side state set from the
+// create-hold response, so a refresh silently lost the "Held — Pay Now" UI even though the hold
+// was still perfectly valid server-side, leaving the user stuck looking at their own seats as if
+// someone else had taken them.
+export async function getActiveHoldForUser(userId: string, eventId: string): Promise<HoldResult | null> {
+  const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true } });
+  if (!event) {
+    throw new NotFoundError("Event not found");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    // Lazy expiry — see releaseExpiredHoldsForEvent's own comment. Without this, a hold that
+    // expired without anyone reading seats since could still look "active" here.
+    await releaseExpiredHoldsForEvent(tx, eventId);
+
+    // A user can hold more than one disjoint seat set for the same event (createHold has no
+    // one-active-hold-per-user restriction) — most recent wins here, matching the client's own
+    // "most recent action" convention elsewhere (e.g. the bookings list).
+    const hold = await tx.hold.findFirst({
+      where: { userId, status: "active", seats: { some: { eventId } } },
+      include: { seats: { select: { id: true, label: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!hold) return null;
+
+    return {
+      id: hold.id,
+      status: hold.status,
+      expiresAt: hold.expiresAt,
+      seats: hold.seats,
+    };
+  });
+}
+
 export async function createHold(
   userId: string,
   eventId: string,

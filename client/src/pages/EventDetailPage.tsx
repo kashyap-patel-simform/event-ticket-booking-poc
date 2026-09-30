@@ -8,9 +8,9 @@ import SeatGrid from "@/features/events/components/SeatGrid";
 import { useEventQuery } from "@/features/events/hooks/useEventQuery";
 import { useSeatsQuery } from "@/features/events/hooks/useSeatsQuery";
 import { useSeatsStream } from "@/features/events/hooks/useSeatsStream";
+import { useActiveHoldQuery } from "@/features/holds/hooks/useActiveHoldQuery";
 import { useCountdown } from "@/features/holds/hooks/useCountdown";
 import { useCreateHoldMutation } from "@/features/holds/hooks/useCreateHoldMutation";
-import type { Hold } from "@/features/holds/schemas/holds.schemas";
 import { useCreateCheckoutMutation } from "@/features/payments/hooks/useCreateCheckoutMutation";
 import { ApiError } from "@/lib/api-client";
 import { formatDate, formatPriceCents } from "@/lib/format";
@@ -22,7 +22,9 @@ function EventDetailPage() {
   useSeatsStream(eventId);
 
   const [selectedSeatIds, setSelectedSeatIds] = useState<Set<string>>(new Set());
-  const [activeHold, setActiveHold] = useState<Hold | null>(null);
+  // Sourced from the server (not local-only state) so a refresh — or a browser-back from Stripe —
+  // still shows "Held — Pay Now" for a hold that's still valid, instead of losing track of it.
+  const { data: activeHold, isPending: isActiveHoldPending } = useActiveHoldQuery(eventId);
 
   const createHoldMutation = useCreateHoldMutation(eventId ?? "");
   const createCheckoutMutation = useCreateCheckoutMutation();
@@ -57,9 +59,7 @@ function EventDetailPage() {
   }
 
   function handleHoldSeats() {
-    createHoldMutation.mutate(Array.from(effectiveSelectedSeatIds), {
-      onSuccess: (hold) => setActiveHold(hold),
-    });
+    createHoldMutation.mutate(Array.from(effectiveSelectedSeatIds));
   }
 
   function handlePayNow() {
@@ -151,7 +151,7 @@ function EventDetailPage() {
               </p>
             )}
 
-            {seats && !hasActiveHold && (
+            {seats && !isActiveHoldPending && !hasActiveHold && (
               <div className="mt-6 flex items-center justify-between gap-4 border-t pt-4">
                 <p className="text-sm text-muted-foreground">
                   {selectedCount > 0

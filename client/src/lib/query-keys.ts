@@ -16,4 +16,7 @@ export const queryKeys = {
   checkoutSessions: {
     status: (sessionId: string) => ["checkoutSessions", "status", sessionId] as const,
   },
+  holds: {
+    mine: (eventId: string) => ["holds", "mine", eventId] as const,
+  },
 } as const;

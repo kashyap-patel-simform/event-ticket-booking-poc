@@ -8,3 +8,10 @@ export async function createHoldHandler(req: Request, res: Response) {
   const result = await holdsService.createHold(userId, eventId, req.body as CreateHoldInput);
   res.status(201).json(result);
 }
+
+export async function getActiveHoldHandler(req: Request, res: Response) {
+  const userId = req.user!.id;
+  const eventId = req.params.id as string;
+  const result = await holdsService.getActiveHoldForUser(userId, eventId);
+  res.status(200).json(result);
+}
