@@ -85,6 +85,26 @@ Brings up `server` (http://localhost:4000, proxied at container-internal port 30
 containers connect out to whatever `DATABASE_URL`/`DIRECT_URL` point at in `server/.env` (Neon in
 this project).
 
+## Demo credentials
+
+Populate the database with a ready-to-use organiser, two buyers, and a handful of real-world
+events (`server/prisma/seed.ts`):
+
+```bash
+cd server
+npm run seed
+```
+
+| Role | Email | Password |
+|---|---|---|
+| Organiser | `alice.bennett@venuehub.example` | `Password123!` |
+| Buyer | `priya.sharma@example.com` | `Password123!` |
+| Buyer | `daniel.kim@example.com` | `Password123!` |
+
+Log in as the organiser to create/manage events and see who's booked them, or as either buyer to
+browse events, hold seats, and pay with a [Stripe test card](https://docs.stripe.com/testing#cards)
+(e.g. `4242 4242 4242 4242`, any future expiry, any CVC).
+
 ## Scripts (per project)
 
 | Script | Purpose |
