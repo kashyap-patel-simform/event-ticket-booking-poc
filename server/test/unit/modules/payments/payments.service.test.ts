@@ -7,7 +7,7 @@ vi.mock("../../../../src/shared/lib/prisma.js", () => ({
     paymentAttempt: { create: vi.fn(), updateMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
     stripeEvent: { create: vi.fn() },
     booking: { create: vi.fn(), findMany: vi.fn() },
-    seat: { updateMany: vi.fn() },
+    seat: { updateMany: vi.fn(), findMany: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -185,19 +185,18 @@ describe("payments.service processStripeEvent", () => {
     vi.mocked(prisma.paymentAttempt.findUnique).mockResolvedValue({
       id: "attempt-1",
       holdId: "hold-1",
-      hold: {
-        userId: "user-1",
-        seats: [
-          { id: "seat-1", eventId: "evt-1" },
-          { id: "seat-2", eventId: "evt-1" },
-        ],
-      },
+      hold: { userId: "user-1" },
     } as never);
     vi.mocked(prisma.hold.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(prisma.seat.findMany).mockResolvedValue([
+      { id: "seat-1", eventId: "evt-1" },
+      { id: "seat-2", eventId: "evt-1" },
+    ] as never);
     vi.mocked(prisma.booking.create).mockResolvedValue({ id: "booking-1" } as never);
 
     await paymentsService.processStripeEvent(checkoutCompletedEvent("cs_1", "pi_1"), noopLog);
 
+    expect(prisma.seat.findMany).toHaveBeenCalledWith({ where: { holdId: "hold-1" } });
     expect(prisma.booking.create).toHaveBeenCalledTimes(1);
     expect(prisma.booking.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ userId: "user-1", eventId: "evt-1", status: "confirmed" }),
@@ -221,7 +220,7 @@ describe("payments.service processStripeEvent", () => {
     vi.mocked(prisma.paymentAttempt.findUnique).mockResolvedValue({
       id: "attempt-1",
       holdId: "hold-1",
-      hold: { userId: "user-1", seats: [{ id: "seat-1", eventId: "evt-1" }] },
+      hold: { userId: "user-1" },
     } as never);
     vi.mocked(prisma.hold.updateMany).mockResolvedValue({ count: 0 });
     vi.mocked(stripe.refunds.create).mockResolvedValue({ id: "re_1" } as never);

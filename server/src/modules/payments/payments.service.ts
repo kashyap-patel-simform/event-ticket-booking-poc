@@ -163,7 +163,7 @@ async function finalizeOrRefundCheckoutSession(
 
   const attempt = await prisma.paymentAttempt.findUnique({
     where: { stripeCheckoutSessionId: session.id },
-    include: { hold: { include: { seats: true } } },
+    include: { hold: true },
   });
   const correlation = {
     stripeEventId,
@@ -181,21 +181,29 @@ async function finalizeOrRefundCheckoutSession(
   }
 
   const attemptCorrelation = { ...correlation, paymentAttemptId: attempt.id, holdId: attempt.holdId };
-  const seatIds = attempt.hold.seats.map((seat) => seat.id);
-  const eventId = attempt.hold.seats[0]!.eventId;
 
   // Single atomic transaction, single conditional UPDATE deciding finalize-vs-refund — same
   // "let the WHERE clause be the source of truth, don't check-then-act" pattern as
   // holds.service.ts's seat claim. The timestamp is re-checked directly here (not just `status`)
   // so this stays correct even if a concurrent lazy-expiry read is racing this exact hold row:
   // Postgres serializes the two UPDATEs and each re-evaluates its own WHERE against post-commit
-  // state.
+  // state. Seats are looked up by holdId *inside* this same transaction (not from a snapshot
+  // fetched before it) — a hold whose lazy-expiry release already ran between checkout and this
+  // webhook has `Seat.holdId` nulled back out, and looking that up beforehand (as this used to)
+  // could find zero seats for a hold this code still thought was worth finalizing, crashing on
+  // `seats[0].eventId`. Below, an empty `seats` result is impossible: `claimed.count > 0` proves
+  // the hold was still `active` in this same transaction, and the lazy-expiry sweep only ever
+  // nulls `Seat.holdId` in the same transaction where it flips that hold to `expired`.
   const outcome = await prisma.$transaction(async (tx) => {
     const claimed = await tx.hold.updateMany({
       where: { id: attempt.holdId, status: "active", expiresAt: { gt: new Date() } },
       data: { status: "converted" },
     });
     if (claimed.count === 0) return { finalized: false as const };
+
+    const seats = await tx.seat.findMany({ where: { holdId: attempt.holdId } });
+    const seatIds = seats.map((seat) => seat.id);
+    const eventId = seats[0]!.eventId;
 
     const ticketReference = randomUUID();
     const booking = await tx.booking.create({
@@ -215,7 +223,7 @@ async function finalizeOrRefundCheckoutSession(
       where: { id: attempt.id },
       data: { status: "succeeded", stripePaymentIntentId: paymentIntentId ?? null },
     });
-    return { finalized: true as const, booking, ticketReference };
+    return { finalized: true as const, booking, ticketReference, eventId, seatIds };
   });
 
   if (!outcome.finalized) {
@@ -225,15 +233,15 @@ async function finalizeOrRefundCheckoutSession(
   }
 
   publishSeatsUpdated(
-    eventId,
-    seatIds.map((id) => ({ id, status: "booked" as const })),
+    outcome.eventId,
+    outcome.seatIds.map((id) => ({ id, status: "booked" as const })),
   );
 
   log.info("Booking finalized from Stripe checkout", {
     ...attemptCorrelation,
     bookingId: outcome.booking.id,
     ticketReference: outcome.ticketReference,
-    seatIds,
+    seatIds: outcome.seatIds,
   });
 }
 
