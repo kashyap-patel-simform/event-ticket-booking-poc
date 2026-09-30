@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Calendar, MapPin, Ticket } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
@@ -9,11 +10,13 @@ import { useEventQuery } from "@/features/events/hooks/useEventQuery";
 import { useSeatsQuery } from "@/features/events/hooks/useSeatsQuery";
 import { useSeatsStream } from "@/features/events/hooks/useSeatsStream";
 import { useActiveHoldQuery } from "@/features/holds/hooks/useActiveHoldQuery";
+import { useCancelHoldMutation } from "@/features/holds/hooks/useCancelHoldMutation";
 import { useCountdown } from "@/features/holds/hooks/useCountdown";
 import { useCreateHoldMutation } from "@/features/holds/hooks/useCreateHoldMutation";
 import { useCreateCheckoutMutation } from "@/features/payments/hooks/useCreateCheckoutMutation";
 import { ApiError } from "@/lib/api-client";
 import { formatDate, formatPriceCents } from "@/lib/format";
+import { queryKeys } from "@/lib/query-keys";
 
 function EventDetailPage() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -27,12 +30,25 @@ function EventDetailPage() {
   const { data: activeHold, isPending: isActiveHoldPending } = useActiveHoldQuery(eventId);
 
   const createHoldMutation = useCreateHoldMutation(eventId ?? "");
+  const cancelHoldMutation = useCancelHoldMutation(eventId ?? "");
   const createCheckoutMutation = useCreateCheckoutMutation();
   const { isExpired, label: countdownLabel } = useCountdown(activeHold?.expiresAt ?? "");
   // Derived, not stored: once expired, treat as if there's no hold at all — no effect needed to
   // "reset" it. The previous seat selection is left intact as a one-click retry affordance.
   const hasActiveHold = !!activeHold && !isExpired;
   const holdJustExpired = !!activeHold && isExpired;
+
+  const queryClient = useQueryClient();
+  // The countdown reaching zero is purely a client-side timer — it doesn't tell the server
+  // anything. Without this, the seat the user was holding keeps showing as "held" (SeatGrid
+  // renders by seat.status, not by whether the countdown ran out) until something else happens to
+  // re-read this event's seats, e.g. a manual reload. Refetch right when it expires so the
+  // server's own lazy-expiry sweep runs and the seat/hold state actually catches up.
+  useEffect(() => {
+    if (!holdJustExpired || !eventId) return;
+    queryClient.invalidateQueries({ queryKey: queryKeys.events.seats(eventId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.holds.mine(eventId) });
+  }, [holdJustExpired, eventId, queryClient]);
 
   // A selected seat can go stale — someone else holds/books it while this user is still deciding
   // (via the SSE stream) or a hold request partially fails. It then renders as a disabled,
@@ -65,6 +81,11 @@ function EventDetailPage() {
   function handlePayNow() {
     if (!hasActiveHold || !activeHold) return;
     createCheckoutMutation.mutate(activeHold.id);
+  }
+
+  function handleCancelHold() {
+    if (!hasActiveHold || !activeHold) return;
+    cancelHoldMutation.mutate(activeHold.id);
   }
 
   const selectedCount = effectiveSelectedSeatIds.size;
@@ -185,10 +206,30 @@ function EventDetailPage() {
                   Held — expires in{" "}
                   <span className="font-medium text-foreground">{countdownLabel}</span>
                 </p>
-                <Button onClick={handlePayNow} disabled={createCheckoutMutation.isPending}>
-                  {createCheckoutMutation.isPending ? "Redirecting…" : "Pay Now"}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelHold}
+                    disabled={cancelHoldMutation.isPending || createCheckoutMutation.isPending}
+                  >
+                    {cancelHoldMutation.isPending ? "Cancelling…" : "Cancel Hold"}
+                  </Button>
+                  <Button
+                    onClick={handlePayNow}
+                    disabled={createCheckoutMutation.isPending || cancelHoldMutation.isPending}
+                  >
+                    {createCheckoutMutation.isPending ? "Redirecting…" : "Pay Now"}
+                  </Button>
+                </div>
               </div>
+            )}
+
+            {cancelHoldMutation.isError && (
+              <p className="mt-2 text-sm text-destructive">
+                {cancelHoldMutation.error instanceof ApiError
+                  ? cancelHoldMutation.error.message
+                  : "Something went wrong. Please try again."}
+              </p>
             )}
 
             {createCheckoutMutation.isError && (

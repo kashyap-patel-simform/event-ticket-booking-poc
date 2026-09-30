@@ -12,3 +12,7 @@ export function createHoldRequest(eventId: string, seatIds: string[]) {
 export function getActiveHoldRequest(eventId: string) {
   return apiFetch<Hold | null>(API_ROUTES.EVENTS.ACTIVE_HOLD(eventId));
 }
+
+export function cancelHoldRequest(holdId: string) {
+  return apiFetch<void>(API_ROUTES.HOLDS.CANCEL(holdId), { method: "POST" });
+}

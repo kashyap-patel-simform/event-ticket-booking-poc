@@ -1,5 +1,10 @@
 import type { Prisma, PrismaClient } from "../../generated/prisma/client.js";
-import { ConflictError, NotFoundError, ValidationError } from "../../shared/errors/AppError.js";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../../shared/errors/AppError.js";
 import { prisma } from "../../shared/lib/prisma.js";
 import { publishSeatsUpdated } from "../../shared/lib/sse-hub.js";
 import type { CreateHoldInput, HoldResult } from "./holds.types.js";
@@ -73,6 +78,45 @@ export async function getActiveHoldForUser(userId: string, eventId: string): Pro
       seats: hold.seats,
     };
   });
+}
+
+// Lets a user give up seats they're holding before the TTL runs out, e.g. because they changed
+// their mind mid-checkout — previously the only way to release a hold early was to let it expire.
+// Uses the schema's existing (until now unused) HoldStatus.released.
+export async function releaseHold(userId: string, holdId: string): Promise<void> {
+  const hold = await prisma.hold.findUnique({ where: { id: holdId } });
+  if (!hold) throw new NotFoundError("Hold not found");
+  if (hold.userId !== userId) throw new ForbiddenError("This hold does not belong to you");
+
+  // Same "let the WHERE clause be the source of truth" pattern as the rest of this module: one
+  // conditional UPDATE decides whether there was actually anything left to cancel, instead of
+  // trusting the `findUnique` above (which could already be stale by the time this runs, e.g. if
+  // the hold expired or converted a moment ago).
+  const outcome = await prisma.$transaction(async (tx) => {
+    const released = await tx.hold.updateMany({
+      where: { id: holdId, status: "active" },
+      data: { status: "released" },
+    });
+    if (released.count === 0) return { released: false as const };
+
+    const seats = await tx.seat.updateManyAndReturn({
+      where: { holdId },
+      data: { status: "available", holdId: null },
+      select: { id: true, eventId: true },
+    });
+    return { released: true as const, seats };
+  });
+
+  if (!outcome.released) {
+    throw new ConflictError("This hold is no longer active");
+  }
+
+  if (outcome.seats.length > 0) {
+    publishSeatsUpdated(
+      outcome.seats[0]!.eventId,
+      outcome.seats.map((seat) => ({ id: seat.id, status: "available" as const })),
+    );
+  }
 }
 
 export async function createHold(
