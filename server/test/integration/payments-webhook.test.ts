@@ -7,7 +7,7 @@ vi.mock("../../src/shared/lib/prisma.js", () => ({
     paymentAttempt: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     stripeEvent: { create: vi.fn() },
     booking: { create: vi.fn() },
-    seat: { updateMany: vi.fn() },
+    seat: { updateMany: vi.fn(), findMany: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -94,9 +94,10 @@ describe("POST /api/payments/webhook", () => {
     vi.mocked(prisma.paymentAttempt.findUnique).mockResolvedValue({
       id: "attempt-1",
       holdId: "hold-1",
-      hold: { userId: "user-1", seats: [{ id: "seat-1", eventId: "evt-1" }] },
+      hold: { userId: "user-1" },
     } as never);
     vi.mocked(prisma.hold.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(prisma.seat.findMany).mockResolvedValue([{ id: "seat-1", eventId: "evt-1" }] as never);
     vi.mocked(prisma.booking.create).mockResolvedValue({ id: "booking-1" } as never);
 
     const res = await request(app)
@@ -117,7 +118,7 @@ describe("POST /api/payments/webhook", () => {
     vi.mocked(prisma.paymentAttempt.findUnique).mockResolvedValue({
       id: "attempt-1",
       holdId: "hold-1",
-      hold: { userId: "user-1", seats: [{ id: "seat-1", eventId: "evt-1" }] },
+      hold: { userId: "user-1" },
     } as never);
     vi.mocked(prisma.hold.updateMany).mockResolvedValue({ count: 0 });
     vi.mocked(stripe.refunds.create).mockResolvedValue({ id: "re_1" } as never);
