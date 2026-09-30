@@ -12,6 +12,7 @@ import type {
   BookingListItem,
   CheckoutSessionResult,
   CheckoutSessionStatusResult,
+  EventBookingListItem,
 } from "./payments.types.js";
 
 const CHECKOUT_SUCCESS_PATH = "/checkout/success";
@@ -343,5 +344,44 @@ export async function listMyBookings(userId: string): Promise<BookingListItem[]>
     currency: booking.paymentAttempt.currency,
     createdAt: booking.createdAt,
     seats: booking.seats,
+  }));
+}
+
+// The organiser-facing counterpart to listMyBookings — every hold/payment/booking is scoped to
+// its owning user everywhere else in this app; this is the one place an authenticated user is
+// deliberately shown someone else's booking data, gated on owning the event itself rather than
+// owning the booking.
+export async function listBookingsForEvent(
+  organiserId: string,
+  eventId: string,
+): Promise<EventBookingListItem[]> {
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: { organiserId: true },
+  });
+  if (!event) throw new NotFoundError("Event not found");
+  if (event.organiserId !== organiserId) {
+    throw new ForbiddenError("This event does not belong to you");
+  }
+
+  const bookings = await prisma.booking.findMany({
+    where: { eventId },
+    include: {
+      user: { select: { id: true, name: true, email: true } },
+      paymentAttempt: { select: { amountCents: true, currency: true } },
+      seats: { select: { id: true, label: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return bookings.map((booking) => ({
+    id: booking.id,
+    ticketReference: booking.ticketReference,
+    status: booking.status,
+    amountCents: booking.paymentAttempt.amountCents,
+    currency: booking.paymentAttempt.currency,
+    createdAt: booking.createdAt,
+    seats: booking.seats,
+    buyer: booking.user,
   }));
 }

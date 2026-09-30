@@ -9,6 +9,7 @@ import {
   bookingsRouter,
   checkoutRouter,
   checkoutSessionsRouter,
+  eventBookingsRouter,
 } from "./modules/payments/payments.routes.js";
 import { env } from "./shared/lib/env.js";
 import { errorHandler } from "./shared/middleware/errorHandler.js";
@@ -46,6 +47,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/events", eventsRouter);
 app.use("/api/events/:id/holds", holdsRouter);
+app.use("/api/events/:id/bookings", eventBookingsRouter);
 app.use("/api/holds", checkoutRouter);
 app.use("/api/holds", holdActionsRouter);
 app.use("/api/bookings", bookingsRouter);

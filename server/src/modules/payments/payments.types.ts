@@ -24,3 +24,14 @@ export interface CheckoutSessionStatusResult {
   status: "pending" | "succeeded" | "failed" | "refunded";
   booking: BookingListItem | null;
 }
+
+export interface EventBookingListItem {
+  id: string;
+  ticketReference: string;
+  status: "confirmed" | "refunded" | "cancelled";
+  amountCents: number;
+  currency: string;
+  createdAt: Date;
+  seats: BookingSeat[];
+  buyer: { id: string; name: string; email: string };
+}

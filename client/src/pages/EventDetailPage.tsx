@@ -5,6 +5,7 @@ import { Link, useParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrentUser } from "@/features/auth/hooks/useCurrentUser";
 import SeatGrid from "@/features/events/components/SeatGrid";
 import { useEventQuery } from "@/features/events/hooks/useEventQuery";
 import { useSeatsQuery } from "@/features/events/hooks/useSeatsQuery";
@@ -14,6 +15,7 @@ import { useCancelHoldMutation } from "@/features/holds/hooks/useCancelHoldMutat
 import { useCountdown } from "@/features/holds/hooks/useCountdown";
 import { useCreateHoldMutation } from "@/features/holds/hooks/useCreateHoldMutation";
 import { useCreateCheckoutMutation } from "@/features/payments/hooks/useCreateCheckoutMutation";
+import { useEventBookingsQuery } from "@/features/payments/hooks/useEventBookingsQuery";
 import { ApiError } from "@/lib/api-client";
 import { formatDate, formatPriceCents } from "@/lib/format";
 import { queryKeys } from "@/lib/query-keys";
@@ -23,6 +25,14 @@ function EventDetailPage() {
   const { data: event, isPending: isEventPending, isError: isEventError } = useEventQuery(eventId);
   const { data: seats, isPending: isSeatsPending } = useSeatsQuery(eventId);
   useSeatsStream(eventId);
+
+  const { data: currentUser } = useCurrentUser();
+  const isOwner = !!event && !!currentUser && event.organiserId === currentUser.id;
+  const {
+    data: eventBookings,
+    isPending: isEventBookingsPending,
+    isError: isEventBookingsError,
+  } = useEventBookingsQuery(eventId, isOwner);
 
   const [selectedSeatIds, setSelectedSeatIds] = useState<Set<string>>(new Set());
   // Sourced from the server (not local-only state) so a refresh — or a browser-back from Stripe —
@@ -239,6 +249,55 @@ function EventDetailPage() {
                   : "Something went wrong. Please try again."}
               </p>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {isOwner && (
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle>Bookings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isEventBookingsPending && (
+              <div className="space-y-2">
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-full" />
+              </div>
+            )}
+            {isEventBookingsError && (
+              <p className="text-sm text-destructive">Failed to load bookings.</p>
+            )}
+            {eventBookings && eventBookings.length === 0 && (
+              <p className="text-sm text-muted-foreground">No bookings yet.</p>
+            )}
+            <div className="divide-y">
+              {eventBookings?.map((booking) => (
+                <div
+                  key={booking.id}
+                  className="flex items-center justify-between gap-4 py-3 text-sm first:pt-0 last:pb-0"
+                >
+                  <div className="space-y-0.5">
+                    <p className="font-medium text-foreground">{booking.buyer.name}</p>
+                    <p className="text-muted-foreground">{booking.buyer.email}</p>
+                    <p className="flex items-center gap-2 text-muted-foreground">
+                      <Ticket className="size-4" />
+                      {booking.ticketReference} · Seats:{" "}
+                      {booking.seats.map((seat) => seat.label).join(", ")}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="font-medium text-foreground">
+                      {formatPriceCents(booking.amountCents)}
+                    </p>
+                    <p className="text-xs text-muted-foreground capitalize">{booking.status}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDate(booking.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
       )}
