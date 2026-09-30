@@ -8,7 +8,11 @@ import { logger as rootLogger } from "../../shared/lib/logger.js";
 import { prisma } from "../../shared/lib/prisma.js";
 import { publishSeatsUpdated } from "../../shared/lib/sse-hub.js";
 import { stripe } from "../../shared/lib/stripe.js";
-import type { BookingListItem, CheckoutSessionResult } from "./payments.types.js";
+import type {
+  BookingListItem,
+  CheckoutSessionResult,
+  CheckoutSessionStatusResult,
+} from "./payments.types.js";
 
 const CHECKOUT_SUCCESS_PATH = "/checkout/success";
 const CHECKOUT_CANCEL_PATH = "/checkout/cancel";
@@ -265,6 +269,49 @@ async function refundPaymentIntent(
     });
     // Not rethrown, for the same reason as above.
   }
+}
+
+// Lets the client tell apart "this specific checkout actually produced a booking" from "Stripe
+// took the payment but the hold had already expired, so it was refunded" — listMyBookings alone
+// can't answer that (it returns whatever the user's most recent *booking* is, which may be an
+// older, unrelated one, or nothing at all, when this particular session was refunded instead).
+export async function getCheckoutSessionStatus(
+  userId: string,
+  stripeCheckoutSessionId: string,
+): Promise<CheckoutSessionStatusResult> {
+  const attempt = await prisma.paymentAttempt.findUnique({
+    where: { stripeCheckoutSessionId },
+    include: {
+      hold: { select: { userId: true } },
+      booking: {
+        include: {
+          event: { select: { id: true, name: true } },
+          seats: { select: { id: true, label: true } },
+        },
+      },
+    },
+  });
+  if (!attempt) throw new NotFoundError("Checkout session not found");
+  if (attempt.hold.userId !== userId) {
+    throw new ForbiddenError("This checkout session does not belong to you");
+  }
+
+  return {
+    status: attempt.status,
+    booking: attempt.booking
+      ? {
+          id: attempt.booking.id,
+          eventId: attempt.booking.event.id,
+          eventName: attempt.booking.event.name,
+          ticketReference: attempt.booking.ticketReference,
+          status: attempt.booking.status,
+          amountCents: attempt.amountCents,
+          currency: attempt.currency,
+          createdAt: attempt.booking.createdAt,
+          seats: attempt.booking.seats,
+        }
+      : null,
+  };
 }
 
 export async function listMyBookings(userId: string): Promise<BookingListItem[]> {

@@ -5,7 +5,11 @@ import { authRouter } from "./modules/auth/auth.routes.js";
 import { eventsRouter } from "./modules/events/events.routes.js";
 import { holdsRouter } from "./modules/holds/holds.routes.js";
 import { stripeWebhookHandler } from "./modules/payments/payments.controller.js";
-import { bookingsRouter, checkoutRouter } from "./modules/payments/payments.routes.js";
+import {
+  bookingsRouter,
+  checkoutRouter,
+  checkoutSessionsRouter,
+} from "./modules/payments/payments.routes.js";
 import { env } from "./shared/lib/env.js";
 import { errorHandler } from "./shared/middleware/errorHandler.js";
 import { requestLogger } from "./shared/middleware/requestLogger.js";
@@ -44,5 +48,6 @@ app.use("/api/events", eventsRouter);
 app.use("/api/events/:id/holds", holdsRouter);
 app.use("/api/holds", checkoutRouter);
 app.use("/api/bookings", bookingsRouter);
+app.use("/api/checkout-sessions", checkoutSessionsRouter);
 
 app.use(errorHandler);

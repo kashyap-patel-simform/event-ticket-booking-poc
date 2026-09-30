@@ -16,6 +16,13 @@ export async function listMyBookingsHandler(req: Request, res: Response) {
   res.status(200).json(result);
 }
 
+export async function getCheckoutSessionStatusHandler(req: Request, res: Response) {
+  const userId = req.user!.id;
+  const sessionId = req.params.sessionId as string;
+  const result = await paymentsService.getCheckoutSessionStatus(userId, sessionId);
+  res.status(200).json(result);
+}
+
 // Wired directly in app.ts, not through a normal authGuard'd router — Stripe calls this with no
 // user JWT; the trust boundary here is signature verification, not authGuard.
 export async function stripeWebhookHandler(req: Request, res: Response) {

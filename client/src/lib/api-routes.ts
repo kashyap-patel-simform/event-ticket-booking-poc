@@ -19,4 +19,7 @@ export const API_ROUTES = {
   BOOKINGS: {
     LIST: "/api/bookings",
   },
+  CHECKOUT_SESSIONS: {
+    STATUS: (sessionId: string) => `/api/checkout-sessions/${sessionId}`,
+  },
 } as const;
