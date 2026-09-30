@@ -15,3 +15,10 @@ export async function getActiveHoldHandler(req: Request, res: Response) {
   const result = await holdsService.getActiveHoldForUser(userId, eventId);
   res.status(200).json(result);
 }
+
+export async function cancelHoldHandler(req: Request, res: Response) {
+  const userId = req.user!.id;
+  const holdId = req.params.holdId as string;
+  await holdsService.releaseHold(userId, holdId);
+  res.status(204).send();
+}

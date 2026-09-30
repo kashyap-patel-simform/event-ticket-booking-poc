@@ -1,7 +1,11 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEventRequest, listSeatsRequest } from "@/features/events/api/events.api";
-import { createHoldRequest, getActiveHoldRequest } from "@/features/holds/api/holds.api";
+import {
+  cancelHoldRequest,
+  createHoldRequest,
+  getActiveHoldRequest,
+} from "@/features/holds/api/holds.api";
 import { createCheckoutRequest } from "@/features/payments/api/payments.api";
 import { ApiError } from "@/lib/api-client";
 import EventDetailPage from "@/pages/EventDetailPage";
@@ -15,6 +19,7 @@ const mockedGetEventRequest = vi.mocked(getEventRequest);
 const mockedListSeatsRequest = vi.mocked(listSeatsRequest);
 const mockedCreateHoldRequest = vi.mocked(createHoldRequest);
 const mockedGetActiveHoldRequest = vi.mocked(getActiveHoldRequest);
+const mockedCancelHoldRequest = vi.mocked(cancelHoldRequest);
 const mockedCreateCheckoutRequest = vi.mocked(createCheckoutRequest);
 
 const EVENT = {
@@ -34,6 +39,7 @@ beforeEach(() => {
   mockedCreateHoldRequest.mockReset();
   mockedCreateCheckoutRequest.mockReset();
   mockedGetActiveHoldRequest.mockReset();
+  mockedCancelHoldRequest.mockReset();
   // Default: no pre-existing hold from a prior visit — matches every existing test's expectations.
   // Tests that care about hold-recovery override this explicitly.
   mockedGetActiveHoldRequest.mockResolvedValue(null);
@@ -135,6 +141,53 @@ describe("EventDetailPage", () => {
     expect(await screen.findByText(/held — expires in/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /pay now/i })).toBeInTheDocument();
     expect(screen.queryByText(/select seats to hold them/i)).not.toBeInTheDocument();
+  });
+
+  it("lets the user cancel an active hold mid-way, releasing it back to selectable", async () => {
+    mockedGetEventRequest.mockResolvedValue(EVENT);
+    mockedListSeatsRequest.mockResolvedValue([{ id: "s1", label: "1", status: "held" }]);
+    mockedGetActiveHoldRequest.mockResolvedValue({
+      id: "hold-1",
+      status: "active",
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      seats: [{ id: "s1", label: "1" }],
+    });
+    mockedCancelHoldRequest.mockResolvedValue(undefined);
+
+    renderWithProviders(<EventDetailPage />, "/events/evt-1", "/events/:eventId");
+
+    fireEvent.click(await screen.findByRole("button", { name: /cancel hold/i }));
+
+    expect(await screen.findByText(/select seats to hold them/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /pay now/i })).not.toBeInTheDocument();
+    expect(mockedCancelHoldRequest).toHaveBeenCalledWith("hold-1");
+  });
+
+  it("refetches seats and hold state as soon as the countdown expires, no reload needed", async () => {
+    mockedGetEventRequest.mockResolvedValue(EVENT);
+    // First read: hold still looks active to the client, but its expiresAt is already in the
+    // past, so useCountdown reports isExpired immediately on mount.
+    mockedGetActiveHoldRequest.mockResolvedValueOnce({
+      id: "hold-1",
+      status: "active",
+      expiresAt: new Date(Date.now() - 1000).toISOString(),
+      seats: [{ id: "s1", label: "1" }],
+    });
+    mockedListSeatsRequest.mockResolvedValueOnce([{ id: "s1", label: "1", status: "held" }]);
+    // Second read, triggered by the expiry-driven invalidate: server's lazy-expiry sweep has by
+    // now actually released it.
+    mockedGetActiveHoldRequest.mockResolvedValueOnce(null);
+    mockedListSeatsRequest.mockResolvedValueOnce([{ id: "s1", label: "1", status: "available" }]);
+
+    renderWithProviders(<EventDetailPage />, "/events/evt-1", "/events/:eventId");
+
+    // The "expired" message is transient (the expiry-driven refetch can resolve to a settled
+    // "no active hold" state almost immediately with these instantly-resolving mocks) — the
+    // meaningful, durable proof of the fix is the end state: the seat becomes selectable again
+    // without a reload, which only happens if the refetch actually fired.
+    expect(await screen.findByTitle("Seat 1 — Available")).toBeInTheDocument();
+    expect(mockedListSeatsRequest).toHaveBeenCalledTimes(2);
+    expect(mockedGetActiveHoldRequest).toHaveBeenCalledTimes(2);
   });
 
   it("redirects to Stripe checkout when Pay Now succeeds", async () => {

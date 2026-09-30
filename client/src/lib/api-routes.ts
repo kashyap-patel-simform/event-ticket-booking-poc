@@ -16,6 +16,7 @@ export const API_ROUTES = {
   },
   HOLDS: {
     CHECKOUT: (holdId: string) => `/api/holds/${holdId}/checkout`,
+    CANCEL: (holdId: string) => `/api/holds/${holdId}/cancel`,
   },
   BOOKINGS: {
     LIST: "/api/bookings",

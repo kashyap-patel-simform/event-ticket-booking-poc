@@ -3,7 +3,7 @@ import express from "express";
 import helmet from "helmet";
 import { authRouter } from "./modules/auth/auth.routes.js";
 import { eventsRouter } from "./modules/events/events.routes.js";
-import { holdsRouter } from "./modules/holds/holds.routes.js";
+import { holdActionsRouter, holdsRouter } from "./modules/holds/holds.routes.js";
 import { stripeWebhookHandler } from "./modules/payments/payments.controller.js";
 import {
   bookingsRouter,
@@ -47,6 +47,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/events", eventsRouter);
 app.use("/api/events/:id/holds", holdsRouter);
 app.use("/api/holds", checkoutRouter);
+app.use("/api/holds", holdActionsRouter);
 app.use("/api/bookings", bookingsRouter);
 app.use("/api/checkout-sessions", checkoutSessionsRouter);
 
