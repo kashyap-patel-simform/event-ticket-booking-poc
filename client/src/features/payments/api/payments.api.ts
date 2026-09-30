@@ -4,6 +4,7 @@ import type {
   Booking,
   CheckoutSessionResult,
   CheckoutSessionStatus,
+  EventBooking,
 } from "../schemas/payments.schemas";
 
 export function createCheckoutRequest(holdId: string) {
@@ -16,4 +17,8 @@ export function listBookingsRequest() {
 
 export function getCheckoutSessionStatusRequest(sessionId: string) {
   return apiFetch<CheckoutSessionStatus>(API_ROUTES.CHECKOUT_SESSIONS.STATUS(sessionId));
+}
+
+export function listEventBookingsRequest(eventId: string) {
+  return apiFetch<EventBooking[]>(API_ROUTES.EVENTS.BOOKINGS(eventId));
 }

@@ -16,6 +16,13 @@ export async function listMyBookingsHandler(req: Request, res: Response) {
   res.status(200).json(result);
 }
 
+export async function listEventBookingsHandler(req: Request, res: Response) {
+  const organiserId = req.user!.id;
+  const eventId = req.params.id as string;
+  const result = await paymentsService.listBookingsForEvent(organiserId, eventId);
+  res.status(200).json(result);
+}
+
 export async function getCheckoutSessionStatusHandler(req: Request, res: Response) {
   const userId = req.user!.id;
   const sessionId = req.params.sessionId as string;

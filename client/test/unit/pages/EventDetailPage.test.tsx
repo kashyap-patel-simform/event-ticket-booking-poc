@@ -6,8 +6,12 @@ import {
   createHoldRequest,
   getActiveHoldRequest,
 } from "@/features/holds/api/holds.api";
-import { createCheckoutRequest } from "@/features/payments/api/payments.api";
+import {
+  createCheckoutRequest,
+  listEventBookingsRequest,
+} from "@/features/payments/api/payments.api";
 import { ApiError } from "@/lib/api-client";
+import { clearAuthSession, setAuthSession } from "@/lib/auth-token";
 import EventDetailPage from "@/pages/EventDetailPage";
 import { renderWithProviders } from "../../test-utils";
 
@@ -21,6 +25,7 @@ const mockedCreateHoldRequest = vi.mocked(createHoldRequest);
 const mockedGetActiveHoldRequest = vi.mocked(getActiveHoldRequest);
 const mockedCancelHoldRequest = vi.mocked(cancelHoldRequest);
 const mockedCreateCheckoutRequest = vi.mocked(createCheckoutRequest);
+const mockedListEventBookingsRequest = vi.mocked(listEventBookingsRequest);
 
 const EVENT = {
   id: "evt-1",
@@ -40,9 +45,13 @@ beforeEach(() => {
   mockedCreateCheckoutRequest.mockReset();
   mockedGetActiveHoldRequest.mockReset();
   mockedCancelHoldRequest.mockReset();
+  mockedListEventBookingsRequest.mockReset();
   // Default: no pre-existing hold from a prior visit — matches every existing test's expectations.
   // Tests that care about hold-recovery override this explicitly.
   mockedGetActiveHoldRequest.mockResolvedValue(null);
+  // Default: no one signed in — matches every existing test's expectations (none of them are the
+  // event's organiser). Tests covering the organiser view override this explicitly.
+  clearAuthSession();
 });
 
 describe("EventDetailPage", () => {
@@ -188,6 +197,44 @@ describe("EventDetailPage", () => {
     expect(await screen.findByTitle("Seat 1 — Available")).toBeInTheDocument();
     expect(mockedListSeatsRequest).toHaveBeenCalledTimes(2);
     expect(mockedGetActiveHoldRequest).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows the Bookings section, with buyer details, to the event's organiser", async () => {
+    setAuthSession("token", { id: EVENT.organiserId, name: "Owner", email: "owner@test.local" });
+    mockedGetEventRequest.mockResolvedValue(EVENT);
+    mockedListSeatsRequest.mockResolvedValue([{ id: "s1", label: "1", status: "booked" }]);
+    mockedListEventBookingsRequest.mockResolvedValue([
+      {
+        id: "booking-1",
+        ticketReference: "TICKET-1",
+        status: "confirmed",
+        amountCents: 2500,
+        currency: "usd",
+        createdAt: "2026-01-05T00:00:00.000Z",
+        seats: [{ id: "s1", label: "1" }],
+        buyer: { id: "u2", name: "Jamie Buyer", email: "jamie@test.local" },
+      },
+    ]);
+
+    renderWithProviders(<EventDetailPage />, "/events/evt-1", "/events/:eventId");
+
+    expect(await screen.findByText("Bookings")).toBeInTheDocument();
+    expect(await screen.findByText("Jamie Buyer")).toBeInTheDocument();
+    expect(screen.getByText("jamie@test.local")).toBeInTheDocument();
+    expect(screen.getByText(/TICKET-1/)).toBeInTheDocument();
+    expect(mockedListEventBookingsRequest).toHaveBeenCalledWith("evt-1");
+  });
+
+  it("never shows the Bookings section, or fetches it, for a non-organiser", async () => {
+    setAuthSession("token", { id: "some-other-user", name: "Not The Owner", email: "x@test.local" });
+    mockedGetEventRequest.mockResolvedValue(EVENT);
+    mockedListSeatsRequest.mockResolvedValue([{ id: "s1", label: "1", status: "available" }]);
+
+    renderWithProviders(<EventDetailPage />, "/events/evt-1", "/events/:eventId");
+
+    expect(await screen.findByText("Concert A")).toBeInTheDocument();
+    expect(screen.queryByText("Bookings")).not.toBeInTheDocument();
+    expect(mockedListEventBookingsRequest).not.toHaveBeenCalled();
   });
 
   it("redirects to Stripe checkout when Pay Now succeeds", async () => {

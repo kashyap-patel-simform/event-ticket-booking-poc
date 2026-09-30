@@ -3,6 +3,7 @@ import { authGuard } from "../../shared/middleware/authGuard.js";
 import {
   createCheckoutHandler,
   getCheckoutSessionStatusHandler,
+  listEventBookingsHandler,
   listMyBookingsHandler,
 } from "./payments.controller.js";
 
@@ -13,6 +14,11 @@ checkoutRouter.post("/:holdId/checkout", authGuard, createCheckoutHandler);
 
 export const bookingsRouter = Router();
 bookingsRouter.get("/", authGuard, listMyBookingsHandler);
+
+// Mounted at /api/events/:id/bookings (mergeParams) — the organiser-facing view of who's booked
+// their event, distinct from bookingsRouter above (the buyer's own "my bookings" list).
+export const eventBookingsRouter = Router({ mergeParams: true });
+eventBookingsRouter.get("/", authGuard, listEventBookingsHandler);
 
 // Lets the post-redirect success page confirm what actually happened to *this* Stripe session,
 // instead of guessing from "most recent booking" (see getCheckoutSessionStatus for why).
