@@ -27,6 +27,7 @@ describe("LoginPage", () => {
   it("logs in and redirects home on success", async () => {
     mockedLoginRequest.mockResolvedValue({
       token: "fake-token",
+      refreshToken: "fake-refresh-token",
       user: { id: "u1", name: "Jane", email: "jane@example.com" },
     });
 
@@ -68,6 +69,10 @@ describe("LoginPage", () => {
 
     expect(await screen.findByRole("button", { name: /logging in/i })).toBeDisabled();
 
-    resolveLogin({ token: "t", user: { id: "u1", name: "Jane", email: "jane@example.com" } });
+    resolveLogin({
+      token: "t",
+      refreshToken: "r",
+      user: { id: "u1", name: "Jane", email: "jane@example.com" },
+    });
   });
 });

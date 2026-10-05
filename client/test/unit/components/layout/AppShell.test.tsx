@@ -29,7 +29,7 @@ beforeEach(() => {
 
 describe("AppShell", () => {
   it("shows nav links and a logout button when a user is signed in", async () => {
-    setAuthSession("token", { id: "u1", name: "Jane Doe", email: "jane@example.com" });
+    setAuthSession("token", "refresh-token", { id: "u1", name: "Jane Doe", email: "jane@example.com" });
 
     renderShell();
 
@@ -53,7 +53,7 @@ describe("AppShell", () => {
   });
 
   it("clears the session and hides nav when logging out", async () => {
-    setAuthSession("token", { id: "u1", name: "Jane Doe", email: "jane@example.com" });
+    setAuthSession("token", "refresh-token", { id: "u1", name: "Jane Doe", email: "jane@example.com" });
 
     renderShell();
 

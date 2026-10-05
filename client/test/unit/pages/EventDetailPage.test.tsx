@@ -200,7 +200,7 @@ describe("EventDetailPage", () => {
   });
 
   it("shows the Bookings section, with buyer details, to the event's organiser", async () => {
-    setAuthSession("token", { id: EVENT.organiserId, name: "Owner", email: "owner@test.local" });
+    setAuthSession("token", "refresh-token", { id: EVENT.organiserId, name: "Owner", email: "owner@test.local" });
     mockedGetEventRequest.mockResolvedValue(EVENT);
     mockedListSeatsRequest.mockResolvedValue([{ id: "s1", label: "1", status: "booked" }]);
     mockedListEventBookingsRequest.mockResolvedValue([
@@ -226,7 +226,7 @@ describe("EventDetailPage", () => {
   });
 
   it("never shows the Bookings section, or fetches it, for a non-organiser", async () => {
-    setAuthSession("token", { id: "some-other-user", name: "Not The Owner", email: "x@test.local" });
+    setAuthSession("token", "refresh-token", { id: "some-other-user", name: "Not The Owner", email: "x@test.local" });
     mockedGetEventRequest.mockResolvedValue(EVENT);
     mockedListSeatsRequest.mockResolvedValue([{ id: "s1", label: "1", status: "available" }]);
 

@@ -15,3 +15,17 @@ export function registerRequest(input: RegisterInput) {
     body: JSON.stringify(input),
   });
 }
+
+export function refreshRequest(refreshToken: string) {
+  return apiFetch<AuthResponse>(API_ROUTES.AUTH.REFRESH, {
+    method: "POST",
+    body: JSON.stringify({ refreshToken }),
+  });
+}
+
+export function logoutRequest(refreshToken: string) {
+  return apiFetch<void>(API_ROUTES.AUTH.LOGOUT, {
+    method: "POST",
+    body: JSON.stringify({ refreshToken }),
+  });
+}

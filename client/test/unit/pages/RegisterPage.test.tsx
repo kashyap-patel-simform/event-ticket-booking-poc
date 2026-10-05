@@ -45,6 +45,7 @@ describe("RegisterPage", () => {
   it("registers and redirects home on success", async () => {
     mockedRegisterRequest.mockResolvedValue({
       token: "fake-token",
+      refreshToken: "fake-refresh-token",
       user: { id: "u1", name: "Jane Doe", email: "jane@example.com" },
     });
 

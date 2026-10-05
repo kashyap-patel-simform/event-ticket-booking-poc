@@ -4,6 +4,8 @@ export const API_ROUTES = {
   AUTH: {
     LOGIN: "/api/auth/login",
     REGISTER: "/api/auth/register",
+    REFRESH: "/api/auth/refresh",
+    LOGOUT: "/api/auth/logout",
   },
   EVENTS: {
     LIST: "/api/events",
