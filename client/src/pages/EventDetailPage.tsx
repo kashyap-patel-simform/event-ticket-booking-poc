@@ -14,6 +14,7 @@ import { useActiveHoldQuery } from "@/features/holds/hooks/useActiveHoldQuery";
 import { useCancelHoldMutation } from "@/features/holds/hooks/useCancelHoldMutation";
 import { useCountdown } from "@/features/holds/hooks/useCountdown";
 import { useCreateHoldMutation } from "@/features/holds/hooks/useCreateHoldMutation";
+import { MAX_SEATS_PER_HOLD } from "@/features/holds/schemas/holds.schemas";
 import { useCreateCheckoutMutation } from "@/features/payments/hooks/useCreateCheckoutMutation";
 import { useEventBookingsQuery } from "@/features/payments/hooks/useEventBookingsQuery";
 import { ApiError } from "@/lib/api-client";
@@ -78,6 +79,7 @@ function EventDetailPage() {
       if (next.has(seatId)) {
         next.delete(seatId);
       } else {
+        if (next.size >= MAX_SEATS_PER_HOLD) return prev;
         next.add(seatId);
       }
       return next;
@@ -173,6 +175,7 @@ function EventDetailPage() {
                 selectedSeatIds={gridSelectedSeatIds}
                 onToggleSeat={toggleSeat}
                 disabled={hasActiveHold}
+                maxSelectable={MAX_SEATS_PER_HOLD}
               />
             )}
 
@@ -186,7 +189,11 @@ function EventDetailPage() {
               <div className="mt-6 flex items-center justify-between gap-4 border-t pt-4">
                 <p className="text-sm text-muted-foreground">
                   {selectedCount > 0
-                    ? `${selectedCount} seat${selectedCount > 1 ? "s" : ""} selected · ${formatPriceCents(selectedTotalCents)}`
+                    ? `${selectedCount} seat${selectedCount > 1 ? "s" : ""} selected · ${formatPriceCents(selectedTotalCents)}${
+                        selectedCount >= MAX_SEATS_PER_HOLD
+                          ? ` · limit of ${MAX_SEATS_PER_HOLD} reached`
+                          : ""
+                      }`
                     : "Select seats to hold them"}
                 </p>
                 <Button
