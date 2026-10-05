@@ -11,7 +11,7 @@ export function useAuthSuccess() {
   const navigate = useNavigate();
 
   return (data: AuthResponse) => {
-    setAuthSession(data.token, data.user);
+    setAuthSession(data.token, data.refreshToken, data.user);
     queryClient.setQueryData(queryKeys.auth.currentUser(), data.user);
     navigate("/");
   };

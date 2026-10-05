@@ -1,4 +1,5 @@
 const TOKEN_KEY = "auth_token";
+const REFRESH_TOKEN_KEY = "auth_refresh_token";
 const USER_KEY = "auth_user";
 
 export interface StoredUser {
@@ -11,6 +12,10 @@ export function getAuthToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
 export function getStoredUser(): StoredUser | null {
   const raw = localStorage.getItem(USER_KEY);
   return raw ? (JSON.parse(raw) as StoredUser) : null;
@@ -19,12 +24,20 @@ export function getStoredUser(): StoredUser | null {
 // There's no /api/auth/me endpoint to refetch the user on page reload — login/register are the
 // only two auth endpoints — so the user object from their response is persisted here alongside
 // the token, letting the session survive a refresh without a server round-trip.
-export function setAuthSession(token: string, user: StoredUser): void {
+export function setAuthSession(token: string, refreshToken: string, user: StoredUser): void {
   localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+// Updates just the token pair after a silent refresh — the user object (and session) is unchanged.
+export function setTokenPair(token: string, refreshToken: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
 }
 
 export function clearAuthSession(): void {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
 }

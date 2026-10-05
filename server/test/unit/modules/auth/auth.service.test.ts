@@ -8,6 +8,12 @@ vi.mock("../../../../src/shared/lib/prisma.js", () => ({
       create: vi.fn(),
       findUnique: vi.fn(),
     },
+    refreshToken: {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
   },
 }));
 
@@ -103,5 +109,103 @@ describe("auth.service login", () => {
     });
     await expect(wrongPassword).rejects.toThrow(UnauthorizedError);
     await expect(wrongPassword).rejects.toThrow("Invalid email or password");
+  });
+});
+
+describe("auth.service refresh", () => {
+  const user = {
+    id: "user-1",
+    name: "Jane Doe",
+    email: "jane@example.com",
+    passwordHash: "irrelevant",
+    createdAt: new Date(),
+  };
+
+  it("rotates a valid refresh token and returns a new pair", async () => {
+    vi.mocked(prisma.refreshToken.findUnique).mockResolvedValue({
+      id: "rt-1",
+      userId: "user-1",
+      tokenHash: "irrelevant-hash",
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      revokedAt: null,
+      replacedByTokenId: null,
+      createdAt: new Date(),
+      user,
+    } as never);
+    vi.mocked(prisma.refreshToken.create).mockResolvedValue({
+      id: "rt-2",
+      userId: "user-1",
+      tokenHash: "new-hash",
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+      revokedAt: null,
+      replacedByTokenId: null,
+      createdAt: new Date(),
+    });
+
+    const result = await authService.refresh({ refreshToken: "raw-token" });
+
+    expect(result.user).toEqual({ id: "user-1", name: "Jane Doe", email: "jane@example.com" });
+    expect(result.refreshToken).toEqual(expect.any(String));
+    expect(prisma.refreshToken.update).toHaveBeenCalledWith({
+      where: { id: "rt-1" },
+      data: { revokedAt: expect.any(Date), replacedByTokenId: "rt-2" },
+    });
+  });
+
+  it("rejects an unknown refresh token", async () => {
+    vi.mocked(prisma.refreshToken.findUnique).mockResolvedValue(null);
+
+    await expect(authService.refresh({ refreshToken: "ghost" })).rejects.toThrow(
+      UnauthorizedError,
+    );
+  });
+
+  it("rejects an expired refresh token", async () => {
+    vi.mocked(prisma.refreshToken.findUnique).mockResolvedValue({
+      id: "rt-1",
+      userId: "user-1",
+      tokenHash: "irrelevant-hash",
+      expiresAt: new Date(Date.now() - 1000),
+      revokedAt: null,
+      replacedByTokenId: null,
+      createdAt: new Date(),
+      user,
+    } as never);
+
+    await expect(authService.refresh({ refreshToken: "raw-token" })).rejects.toThrow(
+      UnauthorizedError,
+    );
+  });
+
+  it("detects reuse of an already-rotated token and revokes the whole family", async () => {
+    vi.mocked(prisma.refreshToken.findUnique).mockResolvedValue({
+      id: "rt-1",
+      userId: "user-1",
+      tokenHash: "irrelevant-hash",
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60),
+      revokedAt: new Date(),
+      replacedByTokenId: "rt-2",
+      createdAt: new Date(),
+      user,
+    } as never);
+
+    await expect(authService.refresh({ refreshToken: "stolen-raw-token" })).rejects.toThrow(
+      UnauthorizedError,
+    );
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
+  });
+});
+
+describe("auth.service logout", () => {
+  it("revokes the presented refresh token", async () => {
+    await authService.logout({ refreshToken: "raw-token" });
+
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { tokenHash: expect.any(String), revokedAt: null },
+      data: { revokedAt: expect.any(Date) },
+    });
   });
 });
