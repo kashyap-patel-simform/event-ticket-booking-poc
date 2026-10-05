@@ -34,10 +34,20 @@ interface SeatGridProps {
   onToggleSeat: (seatId: string) => void;
   /** Disables selecting further seats — e.g. while a hold from a previous selection is active. */
   disabled?: boolean;
+  /** Once selectedSeatIds reaches this size, unselected seats become unclickable (selected ones stay toggleable so the user can still deselect). */
+  maxSelectable?: number;
 }
 
-function SeatGrid({ seats, selectedSeatIds, onToggleSeat, disabled = false }: SeatGridProps) {
+function SeatGrid({
+  seats,
+  selectedSeatIds,
+  onToggleSeat,
+  disabled = false,
+  maxSelectable,
+}: SeatGridProps) {
   const rows = chunk(seats, SEATS_PER_ROW);
+  const selectionLimitReached =
+    maxSelectable !== undefined && selectedSeatIds.size >= maxSelectable;
 
   return (
     <div>
@@ -70,7 +80,7 @@ function SeatGrid({ seats, selectedSeatIds, onToggleSeat, disabled = false }: Se
                 <button
                   key={seat.id}
                   type="button"
-                  disabled={disabled}
+                  disabled={disabled || (selectionLimitReached && !isSelected)}
                   aria-pressed={isSelected}
                   title={`Seat ${seat.label} — ${label}`}
                   aria-label={`Seat ${seat.label}: ${label}`}

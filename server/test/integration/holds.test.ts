@@ -50,6 +50,15 @@ describe("POST /api/events/:id/holds", () => {
     expect(res.status).toBe(400);
   });
 
+  it("returns 400 when seatIds exceeds the per-hold limit", async () => {
+    const res = await request(app)
+      .post("/api/events/evt-1/holds")
+      .set("Authorization", authHeader)
+      .send({ seatIds: Array.from({ length: 11 }, (_, i) => `seat-${i}`) });
+
+    expect(res.status).toBe(400);
+  });
+
   it("returns 404 when the event doesn't exist", async () => {
     vi.mocked(prisma.event.findUnique).mockResolvedValue(null);
 

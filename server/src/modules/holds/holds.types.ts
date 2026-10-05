@@ -1,14 +1,13 @@
 import { z } from "zod";
 
-// Same cap as events.types.ts's seatCount — a hold can never name more seats than an event
-// could possibly have.
-export const MAX_HOLD_SEATS = 500;
+// Business rule, not a capacity artifact — caps how many seats one hold request can claim at once.
+export const MAX_SEATS_PER_HOLD = 10;
 
 export const createHoldSchema = z.object({
   seatIds: z
     .array(z.string().min(1))
     .min(1, "seatIds must contain at least one seat")
-    .max(MAX_HOLD_SEATS, `seatIds must contain at most ${MAX_HOLD_SEATS} seats`)
+    .max(MAX_SEATS_PER_HOLD, `seatIds must contain at most ${MAX_SEATS_PER_HOLD} seats`)
     .refine((ids) => new Set(ids).size === ids.length, {
       message: "seatIds must not contain duplicates",
     }),
