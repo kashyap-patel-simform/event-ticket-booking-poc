@@ -49,17 +49,14 @@ describe("POST /api/events", () => {
     });
     vi.mocked(prisma.seat.createMany).mockResolvedValue({ count: 10 });
 
-    const res = await request(app)
-      .post("/api/events")
-      .set("Authorization", authHeader)
-      .send({
-        name: "Test Concert",
-        date: futureDate,
-        venue: "Main Hall",
-        priceCents: 2500,
-        seatCount: 10,
-        organiserId: "someone-else",
-      });
+    const res = await request(app).post("/api/events").set("Authorization", authHeader).send({
+      name: "Test Concert",
+      date: futureDate,
+      venue: "Main Hall",
+      priceCents: 2500,
+      seatCount: 10,
+      organiserId: "someone-else",
+    });
 
     expect(res.status).toBe(201);
     expect(res.body.seatCounts).toEqual({ available: 10, held: 0, booked: 0 });
@@ -68,16 +65,13 @@ describe("POST /api/events", () => {
   });
 
   it("returns 400 for a past date", async () => {
-    const res = await request(app)
-      .post("/api/events")
-      .set("Authorization", authHeader)
-      .send({
-        name: "Past Event",
-        date: "2020-01-01T00:00:00.000Z",
-        venue: "X",
-        priceCents: 100,
-        seatCount: 10,
-      });
+    const res = await request(app).post("/api/events").set("Authorization", authHeader).send({
+      name: "Past Event",
+      date: "2020-01-01T00:00:00.000Z",
+      venue: "X",
+      priceCents: 100,
+      seatCount: 10,
+    });
     expect(res.status).toBe(400);
   });
 

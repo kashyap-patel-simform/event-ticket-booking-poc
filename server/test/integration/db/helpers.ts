@@ -37,6 +37,9 @@ export async function createEventWithSeats(organiserId: string, seatCount: numbe
       label: String(i + 1),
     })),
   });
-  const seats = await prisma.seat.findMany({ where: { eventId: event.id }, orderBy: { id: "asc" } });
+  const seats = await prisma.seat.findMany({
+    where: { eventId: event.id },
+    orderBy: { id: "asc" },
+  });
   return { event, seats };
 }

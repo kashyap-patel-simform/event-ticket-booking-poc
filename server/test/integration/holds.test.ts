@@ -26,12 +26,17 @@ beforeEach(() => {
 
 describe("POST /api/events/:id/holds", () => {
   it("returns 401 with no auth header", async () => {
-    const res = await request(app).post("/api/events/evt-1/holds").send({ seatIds: ["seat-1"] });
+    const res = await request(app)
+      .post("/api/events/evt-1/holds")
+      .send({ seatIds: ["seat-1"] });
     expect(res.status).toBe(401);
   });
 
   it("returns 400 for an empty seatIds array", async () => {
-    vi.mocked(prisma.event.findUnique).mockResolvedValue({ id: "evt-1", date: futureDate } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      id: "evt-1",
+      date: futureDate,
+    } as never);
 
     const res = await request(app)
       .post("/api/events/evt-1/holds")
@@ -85,7 +90,10 @@ describe("POST /api/events/:id/holds", () => {
   });
 
   it("returns 404 when a requested seat doesn't belong to the event", async () => {
-    vi.mocked(prisma.event.findUnique).mockResolvedValue({ id: "evt-1", date: futureDate } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      id: "evt-1",
+      date: futureDate,
+    } as never);
     vi.mocked(prisma.seat.findMany).mockResolvedValue([]);
 
     const res = await request(app)
@@ -97,7 +105,10 @@ describe("POST /api/events/:id/holds", () => {
   });
 
   it("returns 409 with the unavailable seat ids when a seat can't be claimed", async () => {
-    vi.mocked(prisma.event.findUnique).mockResolvedValue({ id: "evt-1", date: futureDate } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      id: "evt-1",
+      date: futureDate,
+    } as never);
     vi.mocked(prisma.seat.findMany)
       .mockResolvedValueOnce([{ id: "seat-1", label: "1" }] as never)
       .mockResolvedValueOnce([{ id: "seat-1" }] as never);
@@ -119,10 +130,11 @@ describe("POST /api/events/:id/holds", () => {
 
   it("returns 201 with the created hold on the happy path", async () => {
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-    vi.mocked(prisma.event.findUnique).mockResolvedValue({ id: "evt-1", date: futureDate } as never);
-    vi.mocked(prisma.seat.findMany).mockResolvedValueOnce([
-      { id: "seat-1", label: "1" },
-    ] as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      id: "evt-1",
+      date: futureDate,
+    } as never);
+    vi.mocked(prisma.seat.findMany).mockResolvedValueOnce([{ id: "seat-1", label: "1" }] as never);
     vi.mocked(prisma.hold.create).mockResolvedValue({
       id: "hold-1",
       status: "active",

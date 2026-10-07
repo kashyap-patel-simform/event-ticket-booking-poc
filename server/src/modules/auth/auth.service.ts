@@ -37,9 +37,7 @@ async function issueRefreshToken(userId: string): Promise<string> {
   return rawToken;
 }
 
-async function issueTokenPair(
-  userId: string,
-): Promise<{ token: string; refreshToken: string }> {
+async function issueTokenPair(userId: string): Promise<{ token: string; refreshToken: string }> {
   return {
     token: issueAccessToken(userId),
     refreshToken: await issueRefreshToken(userId),

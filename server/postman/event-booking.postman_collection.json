@@ -37,7 +37,11 @@
               "mode": "raw",
               "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"] }
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
           },
           "event": [
             {
@@ -63,7 +67,11 @@
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
             },
-            "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] }
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
           },
           "event": [
             {
