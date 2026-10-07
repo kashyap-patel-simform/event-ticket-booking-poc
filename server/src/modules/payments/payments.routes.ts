@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { authGuard } from "../../shared/middleware/authGuard.js";
 import {
+  cancelBookingHandler,
   createCheckoutHandler,
   getCheckoutSessionStatusHandler,
   listEventBookingsHandler,
@@ -14,6 +15,11 @@ checkoutRouter.post("/:holdId/checkout", authGuard, createCheckoutHandler);
 
 export const bookingsRouter = Router();
 bookingsRouter.get("/", authGuard, listMyBookingsHandler);
+
+// Mounted at /api/bookings alongside bookingsRouter — same "two Router instances, same base
+// path" convention as checkoutRouter/holdActionsRouter both living at /api/holds.
+export const bookingActionsRouter = Router();
+bookingActionsRouter.post("/:bookingId/cancel", authGuard, cancelBookingHandler);
 
 // Mounted at /api/events/:id/bookings (mergeParams) — the organiser-facing view of who's booked
 // their event, distinct from bookingsRouter above (the buyer's own "my bookings" list).

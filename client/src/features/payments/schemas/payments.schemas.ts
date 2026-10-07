@@ -5,21 +5,19 @@ export interface CheckoutSessionResult {
   paymentAttemptId: string;
 }
 
-export interface BookingSeat {
-  id: string;
-  label: string;
-}
-
 export interface Booking {
   id: string;
   eventId: string;
   eventName: string;
+  eventDate: string;
   ticketReference: string;
   status: "confirmed" | "refunded" | "cancelled";
   amountCents: number;
   currency: string;
   createdAt: string;
-  seats: BookingSeat[];
+  // Snapshotted at confirmation time, not read off live seat data — a cancelled booking's seats
+  // get freed for rebooking, which would otherwise make this unrecoverable afterward.
+  seatLabels: string[];
 }
 
 export interface CheckoutSessionStatus {
@@ -34,6 +32,6 @@ export interface EventBooking {
   amountCents: number;
   currency: string;
   createdAt: string;
-  seats: BookingSeat[];
+  seatLabels: string[];
   buyer: { id: string; name: string; email: string };
 }

@@ -15,6 +15,10 @@ export function listBookingsRequest() {
   return apiFetch<Booking[]>(API_ROUTES.BOOKINGS.LIST);
 }
 
+export function cancelBookingRequest(bookingId: string) {
+  return apiFetch<void>(API_ROUTES.BOOKINGS.CANCEL(bookingId), { method: "POST" });
+}
+
 export function getCheckoutSessionStatusRequest(sessionId: string) {
   return apiFetch<CheckoutSessionStatus>(API_ROUTES.CHECKOUT_SESSIONS.STATUS(sessionId));
 }

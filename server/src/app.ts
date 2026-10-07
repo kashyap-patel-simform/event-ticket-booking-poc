@@ -6,6 +6,7 @@ import { eventsRouter } from "./modules/events/events.routes.js";
 import { holdActionsRouter, holdsRouter } from "./modules/holds/holds.routes.js";
 import { stripeWebhookHandler } from "./modules/payments/payments.controller.js";
 import {
+  bookingActionsRouter,
   bookingsRouter,
   checkoutRouter,
   checkoutSessionsRouter,
@@ -51,6 +52,7 @@ app.use("/api/events/:id/bookings", eventBookingsRouter);
 app.use("/api/holds", checkoutRouter);
 app.use("/api/holds", holdActionsRouter);
 app.use("/api/bookings", bookingsRouter);
+app.use("/api/bookings", bookingActionsRouter);
 app.use("/api/checkout-sessions", checkoutSessionsRouter);
 
 app.use(errorHandler);

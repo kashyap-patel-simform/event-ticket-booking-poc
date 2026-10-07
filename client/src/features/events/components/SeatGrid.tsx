@@ -70,8 +70,12 @@ function SeatGrid({
                     key={seat.id}
                     title={`Seat ${seat.label} — ${STATUS_LABELS[seat.status]}`}
                     aria-label={`Seat ${seat.label}: ${STATUS_LABELS[seat.status]}`}
+                    className="flex flex-col items-center gap-0.5"
                   >
                     {icon}
+                    <span className={cn("text-[10px] leading-none", STATUS_STYLES[seat.status])}>
+                      {seat.label}
+                    </span>
                   </span>
                 );
               }
@@ -86,11 +90,19 @@ function SeatGrid({
                   aria-label={`Seat ${seat.label}: ${label}`}
                   onClick={() => onToggleSeat(seat.id)}
                   className={cn(
-                    "rounded-md p-0.5 disabled:cursor-not-allowed disabled:opacity-60",
+                    "flex flex-col items-center gap-0.5 rounded-md p-0.5 disabled:cursor-not-allowed disabled:opacity-60",
                     isSelected && "bg-accent/10 ring-1 ring-accent",
                   )}
                 >
                   {icon}
+                  <span
+                    className={cn(
+                      "text-[10px] leading-none",
+                      isSelected ? "text-accent" : STATUS_STYLES[seat.status],
+                    )}
+                  >
+                    {seat.label}
+                  </span>
                 </button>
               );
             })}

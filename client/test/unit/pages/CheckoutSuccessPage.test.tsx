@@ -22,12 +22,13 @@ describe("CheckoutSuccessPage", () => {
         id: "booking-1",
         eventId: "evt-1",
         eventName: "Concert A",
+        eventDate: "2030-01-01T00:00:00.000Z",
         ticketReference: "ticket-this-session",
         status: "confirmed",
         amountCents: 5000,
         currency: "usd",
         createdAt: "2026-02-01T00:00:00.000Z",
-        seats: [{ id: "s1", label: "1" }],
+        seatLabels: ["1"],
       },
     });
 

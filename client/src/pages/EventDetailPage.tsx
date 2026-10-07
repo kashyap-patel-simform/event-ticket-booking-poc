@@ -289,8 +289,7 @@ function EventDetailPage() {
                     <p className="text-muted-foreground">{booking.buyer.email}</p>
                     <p className="flex items-center gap-2 text-muted-foreground">
                       <Ticket className="size-4" />
-                      {booking.ticketReference} · Seats:{" "}
-                      {booking.seats.map((seat) => seat.label).join(", ")}
+                      {booking.ticketReference} · Seats: {booking.seatLabels.join(", ")}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
@@ -298,9 +297,7 @@ function EventDetailPage() {
                       {formatPriceCents(booking.amountCents)}
                     </p>
                     <p className="text-xs text-muted-foreground capitalize">{booking.status}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(booking.createdAt)}
-                    </p>
+                    <p className="text-xs text-muted-foreground">{formatDate(booking.createdAt)}</p>
                   </div>
                 </div>
               ))}

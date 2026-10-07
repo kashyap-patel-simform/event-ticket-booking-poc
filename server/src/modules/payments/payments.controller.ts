@@ -16,6 +16,13 @@ export async function listMyBookingsHandler(req: Request, res: Response) {
   res.status(200).json(result);
 }
 
+export async function cancelBookingHandler(req: Request, res: Response) {
+  const userId = req.user!.id;
+  const bookingId = req.params.bookingId as string;
+  await paymentsService.cancelBooking(userId, bookingId);
+  res.status(204).send();
+}
+
 export async function listEventBookingsHandler(req: Request, res: Response) {
   const organiserId = req.user!.id;
   const eventId = req.params.id as string;
@@ -43,7 +50,11 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
   try {
     // req.body is a raw Buffer here (see app.ts's express.raw() for this exact path) — Stripe's
     // signature check needs the untouched bytes, not parsed JSON.
-    event = stripe.webhooks.constructEvent(req.body as Buffer, signature, env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(
+      req.body as Buffer,
+      signature,
+      env.STRIPE_WEBHOOK_SECRET,
+    );
   } catch (err) {
     req.log.warn("Stripe webhook signature verification failed", {
       err: err instanceof Error ? err.message : String(err),

@@ -6,8 +6,8 @@ vi.mock("../../../../src/shared/lib/prisma.js", () => ({
     event: { findUniqueOrThrow: vi.fn() },
     paymentAttempt: { create: vi.fn(), updateMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
     stripeEvent: { create: vi.fn() },
-    booking: { create: vi.fn(), findMany: vi.fn() },
-    seat: { updateMany: vi.fn(), findMany: vi.fn() },
+    booking: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
+    seat: { updateMany: vi.fn(), findMany: vi.fn(), updateManyAndReturn: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -145,9 +145,9 @@ describe("payments.service recordStripeEvent", () => {
   it("returns true on a fresh insert", async () => {
     vi.mocked(prisma.stripeEvent.create).mockResolvedValue({} as never);
 
-    await expect(paymentsService.recordStripeEvent("evt_1", "checkout.session.completed")).resolves.toBe(
-      true,
-    );
+    await expect(
+      paymentsService.recordStripeEvent("evt_1", "checkout.session.completed"),
+    ).resolves.toBe(true);
   });
 
   it("returns false without rethrowing on a duplicate (P2002)", async () => {
@@ -158,9 +158,9 @@ describe("payments.service recordStripeEvent", () => {
       }),
     );
 
-    await expect(paymentsService.recordStripeEvent("evt_1", "checkout.session.completed")).resolves.toBe(
-      false,
-    );
+    await expect(
+      paymentsService.recordStripeEvent("evt_1", "checkout.session.completed"),
+    ).resolves.toBe(false);
   });
 
   it("rethrows any other error", async () => {
@@ -189,8 +189,8 @@ describe("payments.service processStripeEvent", () => {
     } as never);
     vi.mocked(prisma.hold.updateMany).mockResolvedValue({ count: 1 });
     vi.mocked(prisma.seat.findMany).mockResolvedValue([
-      { id: "seat-1", eventId: "evt-1" },
-      { id: "seat-2", eventId: "evt-1" },
+      { id: "seat-1", eventId: "evt-1", label: "1" },
+      { id: "seat-2", eventId: "evt-1", label: "2" },
     ] as never);
     vi.mocked(prisma.booking.create).mockResolvedValue({ id: "booking-1" } as never);
 
@@ -199,7 +199,12 @@ describe("payments.service processStripeEvent", () => {
     expect(prisma.seat.findMany).toHaveBeenCalledWith({ where: { holdId: "hold-1" } });
     expect(prisma.booking.create).toHaveBeenCalledTimes(1);
     expect(prisma.booking.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ userId: "user-1", eventId: "evt-1", status: "confirmed" }),
+      data: expect.objectContaining({
+        userId: "user-1",
+        eventId: "evt-1",
+        status: "confirmed",
+        seatLabels: ["1", "2"],
+      }),
     });
     expect(prisma.seat.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["seat-1", "seat-2"] } },
@@ -240,7 +245,10 @@ describe("payments.service processStripeEvent", () => {
     vi.mocked(prisma.paymentAttempt.findUnique).mockResolvedValue(null);
     vi.mocked(stripe.refunds.create).mockResolvedValue({ id: "re_1" } as never);
 
-    await paymentsService.processStripeEvent(checkoutCompletedEvent("cs_orphan", "pi_orphan"), noopLog);
+    await paymentsService.processStripeEvent(
+      checkoutCompletedEvent("cs_orphan", "pi_orphan"),
+      noopLog,
+    );
 
     expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(stripe.refunds.create).toHaveBeenCalledWith({ payment_intent: "pi_orphan" });
@@ -280,15 +288,16 @@ describe("payments.service processStripeEvent", () => {
 describe("payments.service listMyBookings", () => {
   it("scopes the query to the given user and maps fields", async () => {
     const createdAt = new Date();
+    const eventDate = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10);
     vi.mocked(prisma.booking.findMany).mockResolvedValue([
       {
         id: "booking-1",
         ticketReference: "ticket-abc",
         status: "confirmed",
         createdAt,
-        event: { id: "evt-1", name: "Test Concert" },
+        event: { id: "evt-1", name: "Test Concert", date: eventDate },
         paymentAttempt: { amountCents: 5000, currency: "usd" },
-        seats: [{ id: "seat-1", label: "1" }],
+        seatLabels: ["1"],
       },
     ] as never);
 
@@ -302,13 +311,132 @@ describe("payments.service listMyBookings", () => {
         id: "booking-1",
         eventId: "evt-1",
         eventName: "Test Concert",
+        eventDate,
         ticketReference: "ticket-abc",
         status: "confirmed",
         amountCents: 5000,
         currency: "usd",
         createdAt,
-        seats: [{ id: "seat-1", label: "1" }],
+        seatLabels: ["1"],
       },
     ]);
+  });
+});
+
+describe("payments.service cancelBooking", () => {
+  const FAR_FUTURE_EVENT_DATE = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10);
+  const WITHIN_CUTOFF_EVENT_DATE = new Date(Date.now() + 1000 * 60 * 60 * 23);
+
+  function mockConfirmedBooking(overrides: Record<string, unknown> = {}) {
+    vi.mocked(prisma.booking.findUnique).mockResolvedValue({
+      id: "booking-1",
+      userId: "user-1",
+      status: "confirmed",
+      paymentAttemptId: "attempt-1",
+      event: { id: "evt-1", date: FAR_FUTURE_EVENT_DATE },
+      paymentAttempt: { id: "attempt-1", stripePaymentIntentId: "pi_1" },
+      ...overrides,
+    } as never);
+  }
+
+  it("throws NotFoundError when the booking doesn't exist", async () => {
+    vi.mocked(prisma.booking.findUnique).mockResolvedValue(null);
+
+    await expect(paymentsService.cancelBooking("user-1", "booking-1")).rejects.toThrow(
+      NotFoundError,
+    );
+    expect(stripe.refunds.create).not.toHaveBeenCalled();
+  });
+
+  it("throws ForbiddenError when the booking belongs to another user", async () => {
+    mockConfirmedBooking({ userId: "someone-else" });
+
+    await expect(paymentsService.cancelBooking("user-1", "booking-1")).rejects.toThrow(
+      ForbiddenError,
+    );
+    expect(stripe.refunds.create).not.toHaveBeenCalled();
+  });
+
+  it("throws ConflictError when the booking isn't confirmed", async () => {
+    mockConfirmedBooking({ status: "cancelled" });
+
+    await expect(paymentsService.cancelBooking("user-1", "booking-1")).rejects.toThrow(
+      ConflictError,
+    );
+    expect(stripe.refunds.create).not.toHaveBeenCalled();
+  });
+
+  it("throws ConflictError when the event is within the 24h cancellation window", async () => {
+    mockConfirmedBooking({ event: { id: "evt-1", date: WITHIN_CUTOFF_EVENT_DATE } });
+
+    await expect(paymentsService.cancelBooking("user-1", "booking-1")).rejects.toThrow(
+      ConflictError,
+    );
+    expect(stripe.refunds.create).not.toHaveBeenCalled();
+  });
+
+  it("propagates a Stripe refund failure and makes no DB writes", async () => {
+    mockConfirmedBooking();
+    vi.mocked(stripe.refunds.create).mockRejectedValue(new Error("stripe is down"));
+
+    await expect(paymentsService.cancelBooking("user-1", "booking-1")).rejects.toThrow(
+      "stripe is down",
+    );
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("throws and makes no DB writes when the refund doesn't succeed", async () => {
+    mockConfirmedBooking();
+    vi.mocked(stripe.refunds.create).mockResolvedValue({ id: "re_1", status: "pending" } as never);
+
+    await expect(paymentsService.cancelBooking("user-1", "booking-1")).rejects.toThrow();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("refunds via Stripe, cancels the booking, frees the seats, and publishes the update", async () => {
+    mockConfirmedBooking();
+    vi.mocked(stripe.refunds.create).mockResolvedValue({
+      id: "re_1",
+      status: "succeeded",
+    } as never);
+    vi.mocked(prisma.booking.updateMany).mockResolvedValue({ count: 1 });
+    vi.mocked(prisma.seat.updateManyAndReturn).mockResolvedValue([
+      { id: "seat-1", eventId: "evt-1" },
+      { id: "seat-2", eventId: "evt-1" },
+    ] as never);
+
+    await paymentsService.cancelBooking("user-1", "booking-1");
+
+    expect(stripe.refunds.create).toHaveBeenCalledWith({ payment_intent: "pi_1" });
+    expect(prisma.booking.updateMany).toHaveBeenCalledWith({
+      where: { id: "booking-1", status: "confirmed" },
+      data: { status: "cancelled" },
+    });
+    expect(prisma.seat.updateManyAndReturn).toHaveBeenCalledWith({
+      where: { bookingId: "booking-1" },
+      data: { status: "available", bookingId: null, holdId: null },
+      select: { id: true, eventId: true },
+    });
+    expect(prisma.paymentAttempt.update).toHaveBeenCalledWith({
+      where: { id: "attempt-1" },
+      data: { status: "refunded" },
+    });
+    expect(publishSeatsUpdated).toHaveBeenCalledWith("evt-1", [
+      { id: "seat-1", status: "available" },
+      { id: "seat-2", status: "available" },
+    ]);
+  });
+
+  it("throws ConflictError if the booking was no longer confirmed by the time the transaction ran", async () => {
+    mockConfirmedBooking();
+    vi.mocked(stripe.refunds.create).mockResolvedValue({
+      id: "re_1",
+      status: "succeeded",
+    } as never);
+    vi.mocked(prisma.booking.updateMany).mockResolvedValue({ count: 0 });
+
+    await expect(paymentsService.cancelBooking("user-1", "booking-1")).rejects.toThrow(
+      ConflictError,
+    );
   });
 });

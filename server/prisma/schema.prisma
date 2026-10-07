@@ -139,6 +139,10 @@ model Booking {
   ticketReference  String         @unique
   status           BookingStatus  @default(confirmed)
   createdAt        DateTime       @default(now())
+  // Snapshot of seat labels at confirmation time — never updated afterward. Seat.bookingId is a
+  // "who currently owns this seat" pointer, not a history: cancelling a booking nulls it so the
+  // seat can be rebooked, which would otherwise make a cancelled booking's seats unrecoverable.
+  seatLabels       String[]
   seats            Seat[]
 
   @@index([userId])
