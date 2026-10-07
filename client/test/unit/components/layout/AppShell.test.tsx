@@ -29,15 +29,16 @@ beforeEach(() => {
 
 describe("AppShell", () => {
   it("shows nav links and a logout button when a user is signed in", async () => {
-    setAuthSession("token", "refresh-token", { id: "u1", name: "Jane Doe", email: "jane@example.com" });
+    setAuthSession("token", "refresh-token", {
+      id: "u1",
+      name: "Jane Doe",
+      email: "jane@example.com",
+    });
 
     renderShell();
 
     expect(await screen.findByRole("link", { name: /events/i })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("link", { name: /my bookings/i })).toHaveAttribute(
-      "href",
-      "/bookings",
-    );
+    expect(screen.getByRole("link", { name: /my bookings/i })).toHaveAttribute("href", "/bookings");
     expect(screen.getByRole("link", { name: /create event/i })).toHaveAttribute(
       "href",
       "/events/new",
@@ -53,7 +54,11 @@ describe("AppShell", () => {
   });
 
   it("clears the session and hides nav when logging out", async () => {
-    setAuthSession("token", "refresh-token", { id: "u1", name: "Jane Doe", email: "jane@example.com" });
+    setAuthSession("token", "refresh-token", {
+      id: "u1",
+      name: "Jane Doe",
+      email: "jane@example.com",
+    });
 
     renderShell();
 

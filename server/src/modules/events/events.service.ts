@@ -11,7 +11,10 @@ import type {
   SeatListItem,
 } from "./events.types.js";
 
-export async function createEvent(organiserId: string, input: CreateEventInput): Promise<EventDetail> {
+export async function createEvent(
+  organiserId: string,
+  input: CreateEventInput,
+): Promise<EventDetail> {
   const event = await prisma.$transaction(async (tx) => {
     const created = await tx.event.create({
       data: {

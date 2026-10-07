@@ -5,7 +5,11 @@ import { renderWithProviders } from "../../test-utils";
 
 describe("CheckoutCancelPage", () => {
   it("shows a cancelled message and links back to the event when eventId is present", () => {
-    renderWithProviders(<CheckoutCancelPage />, "/checkout/cancel?eventId=evt-1", "/checkout/cancel");
+    renderWithProviders(
+      <CheckoutCancelPage />,
+      "/checkout/cancel?eventId=evt-1",
+      "/checkout/cancel",
+    );
 
     expect(screen.getByText(/payment cancelled/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /back to event/i })).toHaveAttribute(

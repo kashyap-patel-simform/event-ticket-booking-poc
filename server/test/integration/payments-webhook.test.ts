@@ -73,7 +73,10 @@ describe("POST /api/payments/webhook", () => {
       checkoutCompletedEvent("evt_dup", "cs_1", "pi_1"),
     );
     vi.mocked(prisma.stripeEvent.create).mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError("duplicate", { code: "P2002", clientVersion: "test" }),
+      new Prisma.PrismaClientKnownRequestError("duplicate", {
+        code: "P2002",
+        clientVersion: "test",
+      }),
     );
 
     const res = await request(app)
@@ -97,7 +100,9 @@ describe("POST /api/payments/webhook", () => {
       hold: { userId: "user-1" },
     } as never);
     vi.mocked(prisma.hold.updateMany).mockResolvedValue({ count: 1 });
-    vi.mocked(prisma.seat.findMany).mockResolvedValue([{ id: "seat-1", eventId: "evt-1" }] as never);
+    vi.mocked(prisma.seat.findMany).mockResolvedValue([
+      { id: "seat-1", eventId: "evt-1" },
+    ] as never);
     vi.mocked(prisma.booking.create).mockResolvedValue({ id: "booking-1" } as never);
 
     const res = await request(app)

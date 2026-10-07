@@ -51,7 +51,10 @@ describe("holds.service createHold", () => {
   });
 
   it("throws NotFoundError when a requested seat doesn't belong to the event", async () => {
-    vi.mocked(prisma.event.findUnique).mockResolvedValue({ id: "evt-1", date: FUTURE_DATE } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      id: "evt-1",
+      date: FUTURE_DATE,
+    } as never);
     vi.mocked(prisma.seat.findMany).mockResolvedValue([{ id: "seat-1", label: "1" }] as never);
 
     await expect(
@@ -61,7 +64,10 @@ describe("holds.service createHold", () => {
   });
 
   it("throws ConflictError naming the unavailable seats when the claim can't take every seat", async () => {
-    vi.mocked(prisma.event.findUnique).mockResolvedValue({ id: "evt-1", date: FUTURE_DATE } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      id: "evt-1",
+      date: FUTURE_DATE,
+    } as never);
     vi.mocked(prisma.seat.findMany)
       .mockResolvedValueOnce([
         { id: "seat-1", label: "1" },
@@ -88,7 +94,10 @@ describe("holds.service createHold", () => {
       { id: "seat-1", label: "1" },
       { id: "seat-2", label: "2" },
     ];
-    vi.mocked(prisma.event.findUnique).mockResolvedValue({ id: "evt-1", date: FUTURE_DATE } as never);
+    vi.mocked(prisma.event.findUnique).mockResolvedValue({
+      id: "evt-1",
+      date: FUTURE_DATE,
+    } as never);
     vi.mocked(prisma.seat.findMany).mockResolvedValueOnce(requestedSeats as never);
     const expiresAt = new Date(Date.now() + holdsService.HOLD_TTL_MS);
     vi.mocked(prisma.hold.create).mockResolvedValue({

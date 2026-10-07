@@ -155,9 +155,7 @@ describe("auth.service refresh", () => {
   it("rejects an unknown refresh token", async () => {
     vi.mocked(prisma.refreshToken.findUnique).mockResolvedValue(null);
 
-    await expect(authService.refresh({ refreshToken: "ghost" })).rejects.toThrow(
-      UnauthorizedError,
-    );
+    await expect(authService.refresh({ refreshToken: "ghost" })).rejects.toThrow(UnauthorizedError);
   });
 
   it("rejects an expired refresh token", async () => {

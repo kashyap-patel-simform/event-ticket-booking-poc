@@ -50,7 +50,10 @@ export async function releaseExpiredHoldsForEvent(db: Db, eventId: string): Prom
 // create-hold response, so a refresh silently lost the "Held — Pay Now" UI even though the hold
 // was still perfectly valid server-side, leaving the user stuck looking at their own seats as if
 // someone else had taken them.
-export async function getActiveHoldForUser(userId: string, eventId: string): Promise<HoldResult | null> {
+export async function getActiveHoldForUser(
+  userId: string,
+  eventId: string,
+): Promise<HoldResult | null> {
   const event = await prisma.event.findUnique({ where: { id: eventId }, select: { id: true } });
   if (!event) {
     throw new NotFoundError("Event not found");
