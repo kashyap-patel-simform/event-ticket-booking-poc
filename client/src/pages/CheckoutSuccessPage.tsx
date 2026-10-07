@@ -62,7 +62,7 @@ function CheckoutSuccessPage() {
               <Ticket className="size-4" />
               {booking.ticketReference}
             </p>
-            <p>Seats: {booking.seats.map((seat) => seat.label).join(", ")}</p>
+            <p>Seats: {booking.seatLabels.join(", ")}</p>
             <p>{formatPriceCents(booking.amountCents)}</p>
           </CardContent>
         </Card>

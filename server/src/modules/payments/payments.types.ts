@@ -3,21 +3,20 @@ export interface CheckoutSessionResult {
   paymentAttemptId: string;
 }
 
-export interface BookingSeat {
-  id: string;
-  label: string;
-}
-
 export interface BookingListItem {
   id: string;
   eventId: string;
   eventName: string;
+  eventDate: Date;
   ticketReference: string;
   status: "confirmed" | "refunded" | "cancelled";
   amountCents: number;
   currency: string;
   createdAt: Date;
-  seats: BookingSeat[];
+  // Snapshotted at confirmation time (Booking.seatLabels), not read off the live Seat relation —
+  // a cancelled booking's seats get freed for rebooking, which would otherwise make this
+  // unrecoverable. See the field's comment in schema.prisma.
+  seatLabels: string[];
 }
 
 export interface CheckoutSessionStatusResult {
@@ -32,6 +31,6 @@ export interface EventBookingListItem {
   amountCents: number;
   currency: string;
   createdAt: Date;
-  seats: BookingSeat[];
+  seatLabels: string[];
   buyer: { id: string; name: string; email: string };
 }

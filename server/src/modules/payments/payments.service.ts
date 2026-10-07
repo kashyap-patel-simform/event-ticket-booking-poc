@@ -19,6 +19,9 @@ const CHECKOUT_SUCCESS_PATH = "/checkout/success";
 const CHECKOUT_CANCEL_PATH = "/checkout/cancel";
 const CURRENCY = "usd";
 
+// A confirmed booking can only be cancelled while the event is still more than this far away.
+const CANCELLATION_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 // Stripe enforces a 30-minute *minimum* Checkout Session expiry — we cannot make Stripe expire a
 // session at our 5-minute hold TTL. Set just above that floor (a small buffer past the stated
 // 1800s minimum, in case Stripe's boundary check is strictly-greater-than) rather than defaulting
@@ -176,12 +179,19 @@ async function finalizeOrRefundCheckoutSession(
     // No matching PaymentAttempt row — e.g. our DB write after creating the Stripe session
     // crashed, or (should be impossible) a session we never created called back. Stripe has
     // already taken the customer's money and there's nothing to finalize against — refund it.
-    log.error("checkout.session.completed with no matching PaymentAttempt — refunding", correlation);
+    log.error(
+      "checkout.session.completed with no matching PaymentAttempt — refunding",
+      correlation,
+    );
     await refundPaymentIntent(paymentIntentId, undefined, correlation, log);
     return;
   }
 
-  const attemptCorrelation = { ...correlation, paymentAttemptId: attempt.id, holdId: attempt.holdId };
+  const attemptCorrelation = {
+    ...correlation,
+    paymentAttemptId: attempt.id,
+    holdId: attempt.holdId,
+  };
 
   // Single atomic transaction, single conditional UPDATE deciding finalize-vs-refund — same
   // "let the WHERE clause be the source of truth, don't check-then-act" pattern as
@@ -214,6 +224,9 @@ async function finalizeOrRefundCheckoutSession(
         paymentAttemptId: attempt.id,
         ticketReference,
         status: "confirmed",
+        // Snapshot now, while Seat.bookingId still links back here — see the field's own comment
+        // in schema.prisma for why this can't just be read off the live relation later.
+        seatLabels: seats.map((seat) => seat.label),
       },
     });
     await tx.seat.updateMany({
@@ -294,8 +307,7 @@ export async function getCheckoutSessionStatus(
       hold: { select: { userId: true } },
       booking: {
         include: {
-          event: { select: { id: true, name: true } },
-          seats: { select: { id: true, label: true } },
+          event: { select: { id: true, name: true, date: true } },
         },
       },
     },
@@ -312,12 +324,13 @@ export async function getCheckoutSessionStatus(
           id: attempt.booking.id,
           eventId: attempt.booking.event.id,
           eventName: attempt.booking.event.name,
+          eventDate: attempt.booking.event.date,
           ticketReference: attempt.booking.ticketReference,
           status: attempt.booking.status,
           amountCents: attempt.amountCents,
           currency: attempt.currency,
           createdAt: attempt.booking.createdAt,
-          seats: attempt.booking.seats,
+          seatLabels: attempt.booking.seatLabels,
         }
       : null,
   };
@@ -327,9 +340,8 @@ export async function listMyBookings(userId: string): Promise<BookingListItem[]>
   const bookings = await prisma.booking.findMany({
     where: { userId }, // ownership enforced by the query itself, not a post-filter
     include: {
-      event: { select: { id: true, name: true } },
+      event: { select: { id: true, name: true, date: true } },
       paymentAttempt: { select: { amountCents: true, currency: true } },
-      seats: { select: { id: true, label: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -338,13 +350,86 @@ export async function listMyBookings(userId: string): Promise<BookingListItem[]>
     id: booking.id,
     eventId: booking.event.id,
     eventName: booking.event.name,
+    eventDate: booking.event.date,
     ticketReference: booking.ticketReference,
     status: booking.status,
     amountCents: booking.paymentAttempt.amountCents,
     currency: booking.paymentAttempt.currency,
     createdAt: booking.createdAt,
-    seats: booking.seats,
+    seatLabels: booking.seatLabels,
   }));
+}
+
+// Lets a buyer give up a paid, confirmed booking and get a real Stripe refund — mirrors
+// holds.service.ts's releaseHold: fetch once for ownership/state checks, then a single
+// conditional UPDATE inside a transaction decides whether there was actually still a confirmed
+// booking to cancel (not the earlier read, which can be stale by the time this runs).
+//
+// Unlike the webhook's finalizeOrRefundCheckoutSession (DB-transaction-first, refund-as-cleanup),
+// this calls Stripe *before* touching the DB and lets a failure propagate uncaught: this is a
+// synchronous HTTP request a user is waiting on, so the response must be the source of truth —
+// flipping the booking to "cancelled" before confirming the refund succeeded would risk the UI
+// showing "cancelled" while Stripe still held the buyer's money.
+export async function cancelBooking(userId: string, bookingId: string): Promise<void> {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      event: { select: { id: true, date: true } },
+      paymentAttempt: { select: { id: true, stripePaymentIntentId: true } },
+    },
+  });
+  if (!booking) throw new NotFoundError("Booking not found");
+  if (booking.userId !== userId) throw new ForbiddenError("This booking does not belong to you");
+  if (booking.status !== "confirmed") {
+    throw new ConflictError("This booking is no longer confirmed");
+  }
+  if (booking.event.date.getTime() - Date.now() <= CANCELLATION_WINDOW_MS) {
+    throw new ConflictError("Cancellation closes 24 hours before the event");
+  }
+
+  // A confirmed booking's payment attempt always has stripePaymentIntentId set —
+  // finalizeOrRefundCheckoutSession sets status:"succeeded" and stripePaymentIntentId together
+  // in the same write. Should be unreachable; a plain throw (-> 500) if it ever isn't, same
+  // precedent as createCheckoutSession's `if (!session.url) throw new Error(...)`.
+  const paymentIntentId = booking.paymentAttempt.stripePaymentIntentId;
+  if (!paymentIntentId) {
+    throw new Error("Confirmed booking has no Stripe payment intent on its payment attempt");
+  }
+
+  const refund = await stripe.refunds.create({ payment_intent: paymentIntentId });
+  if (refund.status !== "succeeded") {
+    throw new Error(`Stripe refund did not succeed (refund ${refund.id}, status ${refund.status})`);
+  }
+
+  const outcome = await prisma.$transaction(async (tx) => {
+    const cancelled = await tx.booking.updateMany({
+      where: { id: bookingId, status: "confirmed" },
+      data: { status: "cancelled" },
+    });
+    if (cancelled.count === 0) return { cancelled: false as const };
+
+    const seats = await tx.seat.updateManyAndReturn({
+      where: { bookingId },
+      data: { status: "available", bookingId: null, holdId: null },
+      select: { id: true, eventId: true },
+    });
+    await tx.paymentAttempt.update({
+      where: { id: booking.paymentAttemptId },
+      data: { status: "refunded" },
+    });
+    return { cancelled: true as const, seats };
+  });
+
+  if (!outcome.cancelled) {
+    throw new ConflictError("This booking is no longer confirmed");
+  }
+
+  if (outcome.seats.length > 0) {
+    publishSeatsUpdated(
+      outcome.seats[0]!.eventId,
+      outcome.seats.map((seat) => ({ id: seat.id, status: "available" as const })),
+    );
+  }
 }
 
 // The organiser-facing counterpart to listMyBookings — every hold/payment/booking is scoped to
@@ -369,7 +454,6 @@ export async function listBookingsForEvent(
     include: {
       user: { select: { id: true, name: true, email: true } },
       paymentAttempt: { select: { amountCents: true, currency: true } },
-      seats: { select: { id: true, label: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -381,7 +465,7 @@ export async function listBookingsForEvent(
     amountCents: booking.paymentAttempt.amountCents,
     currency: booking.paymentAttempt.currency,
     createdAt: booking.createdAt,
-    seats: booking.seats,
+    seatLabels: booking.seatLabels,
     buyer: booking.user,
   }));
 }
